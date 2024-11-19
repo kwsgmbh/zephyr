@@ -1,14 +1,11 @@
-.. _pico_spe:
-
-Pico-SPE
-#################
+.. :zephyr:board:: pico_spe
 
 Overview
 ********
 
 The Pico-SPE is a small, low-cost, versatile boards from
 KWS Computersysteme Gmbh. They are equipped with an RP2040 SoC, an on-board LED,
-a USB connector, an SWD interface. The Pico-SPE Additionally contains an
+a USB connector, an SWD interface. The Pico-SPE additionally contains an
 Microchip LAN8651 10Base-T1S module. The USB bootloader allows the
 ability to flash without any adapter, in a drag-and-drop manner.
 It is also possible to flash and debug the boards with their SWD interface,
@@ -29,14 +26,6 @@ Hardware
 - On-board LED
 - 1 Watchdog timer peripheral
 - Microchip LAN8651 10Base-T1S
-
-
-.. figure:: img/pico_spe.png
-     :align: center
-     :alt: Pico-SPE
-
-     Pico-SPE(above)
-     (Images courtesy of KWS Computersysteme Gmbh)
 
 Supported Features
 ==================
@@ -136,7 +125,7 @@ can be found at :zephyr_file:`drivers/serial/uart_rpi_pico_pio.c`.
 Sample: SPI via PIO
 ====================
 
-The :zephyr_file:`samples/sensor/bme280/README.rst` sample includes a
+The :zephyr:code-sample:`bme280` sample includes a
 demonstration of using the PIO SPI driver to communicate with an
 environmental sensor.  The PIO SPI driver supports using any
 combination of GPIO pins for an SPI bus, as well as allowing up to
@@ -169,7 +158,7 @@ Here is an example of building and flashing the :zephyr:code-sample:`blinky` app
 Using OpenOCD
 -------------
 
-To use CMSIS-DAP, You must configure **udev**.
+To use CMSIS-DAP, you must configure **udev**.
 
 Create a file in /etc/udev.rules.d with any name, and write the line below.
 
