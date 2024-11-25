@@ -1,4 +1,4 @@
-.. :zephyr:board:: pico_spe
+.. zephyr:board:: pico_spe
 
 Overview
 ********
