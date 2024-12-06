@@ -104,10 +104,16 @@ static const struct wifi_mgmt_ops mgmt_ap_ops = {
 	.ap_disable = supplicant_ap_disable,
 	.ap_sta_disconnect = supplicant_ap_sta_disconnect,
 	.iface_status = supplicant_ap_status,
+#ifdef CONFIG_WIFI_NM_HOSTAPD_WPS
+	.wps_config = supplicant_ap_wps_config,
+#endif
 #ifdef CONFIG_WIFI_NM_WPA_SUPPLICANT_DPP
 	.dpp_dispatch = hapd_dpp_dispatch,
 #endif /* CONFIG_WIFI_NM_WPA_SUPPLICANT_DPP */
 	.ap_config_params = supplicant_ap_config_params,
+#ifdef CONFIG_WIFI_NM_HOSTAPD_CRYPTO_ENTERPRISE
+	.enterprise_creds = supplicant_add_enterprise_creds,
+#endif
 };
 
 DEFINE_WIFI_NM_INSTANCE(hostapd, &mgmt_ap_ops);
@@ -639,6 +645,12 @@ struct hostapd_iface *hostapd_get_interface(const char *ifname)
 	return ctx->hostapd.iface[0];
 }
 
+static void hostapd_event_eapol_rx_cb(void *ctx, const u8 *src_addr,
+				       const u8 *buf, size_t len)
+{
+	hostapd_event_eapol_rx(ctx, src_addr, buf, len, FRAME_ENCRYPTION_UNKNOWN, -1);
+}
+
 static int hostapd_enable_iface_cb(struct hostapd_iface *hapd_iface)
 {
 	struct hostapd_data *bss;
@@ -656,7 +668,7 @@ static int hostapd_enable_iface_cb(struct hostapd_iface *hapd_iface)
 
 	l2_packet_deinit(bss->l2);
 	bss->l2 = l2_packet_init(bss->conf->iface, bss->conf->bssid, ETH_P_EAPOL,
-				 &hostapd_event_eapol_rx, bss, 0);
+				 &hostapd_event_eapol_rx_cb, bss, 0);
 	if (bss->l2 == NULL) {
 		wpa_printf(MSG_ERROR, "Failed to initialize l2 for hostapd interface");
 		return -1;

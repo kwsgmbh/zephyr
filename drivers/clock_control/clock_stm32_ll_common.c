@@ -17,7 +17,6 @@
 #include <zephyr/sys/__assert.h>
 #include <zephyr/drivers/clock_control/stm32_clock_control.h>
 #include "clock_stm32_ll_common.h"
-#include "clock_stm32_ll_mco.h"
 #include "stm32_hsem.h"
 
 /* Macros to fill up prescaler values */
@@ -498,7 +497,7 @@ static enum clock_control_status stm32_clock_control_get_status(const struct dev
 	}
 }
 
-static const struct clock_control_driver_api stm32_clock_control_api = {
+static DEVICE_API(clock_control, stm32_clock_control_api) = {
 	.on = stm32_clock_control_on,
 	.off = stm32_clock_control_off,
 	.get_rate = stm32_clock_control_get_subsys_rate,
@@ -869,9 +868,6 @@ int stm32_clock_control_init(const struct device *dev)
 #if DT_NODE_HAS_PROP(DT_NODELABEL(rcc), adc34_prescaler)
 	LL_RCC_SetADCClockSource(adc34_prescaler(STM32_ADC34_PRESCALER));
 #endif
-
-	/* configure MCO1/MCO2 based on Kconfig */
-	stm32_clock_control_mco_init();
 
 	return 0;
 }

@@ -24,6 +24,7 @@
 #include <zephyr/dt-bindings/sensor/stts22h.h>
 #include <zephyr/dt-bindings/sensor/ina226.h>
 #include <zephyr/dt-bindings/sensor/apds9253.h>
+#include <zephyr/dt-bindings/sensor/tmp116.h>
 
 /****************************************
  * PLEASE KEEP REG ADDRESSES SEQUENTIAL *
@@ -478,6 +479,7 @@ test_i2c_tmp112: tmp112@46 {
 test_i2c_tmp116: tmp116@47 {
 	compatible = "ti,tmp116";
 	reg = <0x47>;
+	odr = <TMP116_DT_ODR_125_MS>;
 };
 
 test_i2c_bq274xx: bq27xx@48 {
@@ -1124,4 +1126,25 @@ test_i2c_ilps22qs: ilps22qs@9c {
 	lpf = <LPS2xDF_DT_LP_FILTER_ODR_4>;
 	avg = <LPS2xDF_DT_AVG_128_SAMPLES>;
 	fs = <ILPS22QS_DT_FS_MODE_1_1260>;
+};
+
+test_i2c_sts4x: sts4x@9d {
+	compatible = "sensirion,sts4x";
+	reg = <0x99>;
+	repeatability = <2>;
+};
+
+test_i2c_scd4x: scd4x@9e {
+	compatible = "sensirion,scd41";
+	reg = <0x9e>;
+	mode = <0>;
+};
+
+test_i2c_npm2100: npm2100@9f {
+	compatible = "nordic,npm2100";
+	reg = <0x9f>;
+
+	vbat {
+		compatible = "nordic,npm2100-vbat";
+	};
 };

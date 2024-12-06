@@ -58,13 +58,6 @@ static struct bt_iso_recv_info iso_info_data[CONFIG_BT_ISO_RX_BUF_COUNT];
 #define iso_info(buf) (&iso_info_data[net_buf_id(buf)])
 #endif /* CONFIG_BT_ISO_RX */
 
-#if defined(CONFIG_BT_ISO_UNICAST) || defined(CONFIG_BT_ISO_BROADCAST)
-NET_BUF_POOL_FIXED_DEFINE(iso_tx_pool, CONFIG_BT_ISO_TX_BUF_COUNT,
-			  BT_ISO_SDU_BUF_SIZE(CONFIG_BT_ISO_TX_MTU),
-			  CONFIG_BT_CONN_TX_USER_DATA_SIZE, NULL);
-
-#endif /* CONFIG_BT_ISO_UNICAST || CONFIG_BT_ISO_BROADCAST */
-
 struct bt_conn iso_conns[CONFIG_BT_ISO_MAX_CHAN];
 
 /* TODO: Allow more than one server? */
@@ -181,27 +174,6 @@ static struct bt_conn *iso_new(void)
 	}
 
 	return iso;
-}
-
-#if defined(CONFIG_NET_BUF_LOG)
-struct net_buf *bt_iso_create_pdu_timeout_debug(struct net_buf_pool *pool, size_t reserve,
-						k_timeout_t timeout, const char *func, int line)
-#else
-struct net_buf *bt_iso_create_pdu_timeout(struct net_buf_pool *pool, size_t reserve,
-					  k_timeout_t timeout)
-#endif
-{
-	if (!pool) {
-		pool = &iso_tx_pool;
-	}
-
-	reserve += sizeof(struct bt_hci_iso_sdu_hdr);
-
-#if defined(CONFIG_NET_BUF_LOG)
-	return bt_conn_create_pdu_timeout_debug(pool, reserve, timeout, func, line);
-#else
-	return bt_conn_create_pdu_timeout(pool, reserve, timeout);
-#endif
 }
 
 static int hci_le_setup_iso_data_path(const struct bt_conn *iso, uint8_t dir,
@@ -2649,11 +2621,11 @@ static int big_init_bis(struct bt_iso_big *big, struct bt_iso_chan **bis_channel
 static int hci_le_create_big(struct bt_le_ext_adv *padv, struct bt_iso_big *big,
 			     struct bt_iso_big_create_param *param)
 {
+	const struct bt_iso_chan_io_qos *qos;
 	struct bt_hci_cp_le_create_big *req;
 	struct bt_hci_cmd_state_set state;
 	struct net_buf *buf;
 	int err;
-	static struct bt_iso_chan_qos *qos;
 	struct bt_iso_chan *bis;
 
 	buf = bt_hci_cmd_create(BT_HCI_OP_LE_CREATE_BIG, sizeof(*req));
@@ -2666,17 +2638,17 @@ static int hci_le_create_big(struct bt_le_ext_adv *padv, struct bt_iso_big *big,
 	__ASSERT(bis != NULL, "bis was NULL");
 
 	/* All BIS will share the same QOS */
-	qos = bis->qos;
+	qos = bis->qos->tx;
 
 	req = net_buf_add(buf, sizeof(*req));
 	req->big_handle = big->handle;
 	req->adv_handle = padv->handle;
 	req->num_bis = big->num_bis;
 	sys_put_le24(param->interval, req->sdu_interval);
-	req->max_sdu = sys_cpu_to_le16(qos->tx->sdu);
+	req->max_sdu = sys_cpu_to_le16(qos->sdu);
 	req->max_latency = sys_cpu_to_le16(param->latency);
-	req->rtn = qos->tx->rtn;
-	req->phy = qos->tx->phy;
+	req->rtn = qos->rtn;
+	req->phy = qos->phy;
 	req->packing = param->packing;
 	req->framing = param->framing;
 	req->encryption = param->encryption;
@@ -2685,6 +2657,11 @@ static int hci_le_create_big(struct bt_le_ext_adv *padv, struct bt_iso_big *big,
 	} else {
 		memset(req->bcode, 0, sizeof(req->bcode));
 	}
+
+	LOG_DBG("BIG handle 0x%02x, adv_handle 0x%02x, num_bis %u, sdu_interval %u, max_sdu %u, "
+		"max_latency %u, rtn %u, phy %u, packing %u, framing %u, encryption %u",
+		big->handle, padv->handle, big->num_bis, param->interval, qos->sdu, param->latency,
+		qos->rtn, qos->phy, param->packing, param->framing, param->encryption);
 
 	bt_hci_cmd_state_set_init(buf, &state, big->flags, BT_BIG_PENDING, true);
 	err = bt_hci_cmd_send_sync(BT_HCI_OP_LE_CREATE_BIG, buf, NULL);

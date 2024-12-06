@@ -15,5 +15,8 @@ toolchain:
   - gnuarmemb
   - xtools
 supported:
+  - flash
   - gpio
+  - dac
+  - pwm
 vendor: nxp

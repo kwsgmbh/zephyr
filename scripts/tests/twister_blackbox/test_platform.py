@@ -36,9 +36,9 @@ class TestPlatform:
                 'built_configurations': 2,
                 'failed_configurations': 0,
                 'errored_configurations': 0,
-                'executed_test_cases': 8,
-                'skipped_test_cases': 5,
-                'platform_count': 3,
+                'executed_test_cases': 10,
+                'skipped_test_cases': 2,
+                'platform_count': 2,
                 'executed_on_platform': 4,
                 'only_built': 2
             }
@@ -58,10 +58,31 @@ class TestPlatform:
                 'failed_configurations': 0,
                 'errored_configurations': 0,
                 'executed_test_cases': 0,
-                'skipped_test_cases': 3,
-                'platform_count': 3,
+                'skipped_test_cases': 0,
+                'platform_count': 0,
                 'executed_on_platform': 0,
                 'only_built': 0
+            }
+        ),
+        (
+            os.path.join(TEST_DATA, 'tests', 'dummy', 'agnostic_cpp'),
+            ['native_sim'],
+            {
+                'selected_test_scenarios': 3,
+                'selected_test_instances': 3,
+                'executed_test_instances': 3,
+                'skipped_configurations': 0,
+                'skipped_by_static_filter': 0,
+                'skipped_at_runtime': 0,
+                'passed_configurations': 2,
+                'built_configurations': 1,
+                'failed_configurations': 0,
+                'errored_configurations': 0,
+                'executed_test_cases': 5,
+                'skipped_test_cases': 0,
+                'platform_count': 1,
+                'executed_on_platform': 2,
+                'only_built': 1
             }
         ),
     ]
@@ -129,7 +150,7 @@ class TestPlatform:
 
         assert str(sys_exit.value) == '0'
 
-        assert len(filtered_j) == 12
+        assert len(filtered_j) == 26
 
     def test_platform(self, out_path):
         path = os.path.join(TEST_DATA, 'tests', 'dummy')
@@ -250,6 +271,7 @@ class TestPlatform:
         ids=[
             'emulation_only tests/dummy/agnostic',
             'emulation_only tests/dummy/device',
+            'native_sim_only tests/dummy/agnostic_cpp',
         ]
     )
     def test_emulation_only(self, capfd, out_path, test_path, test_platforms, expected):
@@ -264,7 +286,7 @@ class TestPlatform:
             self.loader.exec_module(self.twister_module)
 
         select_regex = r'^INFO    - (?P<test_scenarios>[0-9]+) test scenarios' \
-                       r' \((?P<test_instances>[0-9]+) test instances\) selected,' \
+                       r' \((?P<test_instances>[0-9]+) configurations\) selected,' \
                        r' (?P<skipped_configurations>[0-9]+) configurations filtered' \
                        r' \((?P<skipped_by_static_filter>[0-9]+) by static filter,' \
                        r' (?P<skipped_at_runtime>[0-9]+) at runtime\)\.$'

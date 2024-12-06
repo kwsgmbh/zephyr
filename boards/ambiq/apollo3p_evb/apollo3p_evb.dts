@@ -85,6 +85,10 @@
 	};
 };
 
+&stimer0 {
+	clk-source = <3>;
+};
+
 &bleif {
 	pinctrl-0 = <&bleif_default>;
 	pinctrl-names = "default";
@@ -94,6 +98,12 @@
 &uart0 {
 	current-speed = <115200>;
 	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&itm {
+	pinctrl-0 = <&itm_default>;
 	pinctrl-names = "default";
 	status = "okay";
 };

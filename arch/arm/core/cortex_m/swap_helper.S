@@ -288,7 +288,7 @@ in_fp_endif:
 #if defined(CONFIG_MPU_STACK_GUARD) || defined(CONFIG_USERSPACE)
     /* Re-program dynamic memory map */
     push {r2,lr}
-    mov r0, r2 /* _current thread */
+    mov r0, r2 /* arch_current_thread() thread */
     bl z_arm_configure_dynamic_mpu_regions
     pop {r2,lr}
 #endif
@@ -447,6 +447,7 @@ _oops:
     mov  r1, sp /* pointer to _callee_saved_t */
 #endif /* CONFIG_ARMV7_M_ARMV8_M_MAINLINE */
 #endif /* CONFIG_EXTRA_EXCEPTION_INFO */
+    mov r2, lr /* EXC_RETURN */
     bl z_do_kernel_oops
     /* return from SVC exception is done here */
 #if defined(CONFIG_EXTRA_EXCEPTION_INFO)

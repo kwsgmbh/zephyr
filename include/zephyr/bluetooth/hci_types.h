@@ -2500,7 +2500,7 @@ struct bt_hci_cp_le_read_remote_fae_table {
 
 struct bt_hci_cp_le_write_cached_remote_fae_table {
 	uint16_t handle;
-	uint8_t remote_fae_table[72];
+	int8_t remote_fae_table[72];
 } __packed;
 
 #define BT_HCI_OP_LE_CS_SET_CHANNEL_CLASSIFICATION BT_OP(BT_OGF_LE, 0x0092) /* 0x2092 */
@@ -2578,19 +2578,12 @@ struct bt_hci_cp_le_procedure_enable {
 #define BT_HCI_OP_LE_CS_ACI_6 0x6
 #define BT_HCI_OP_LE_CS_ACI_7 0x7
 
-#define BT_HCI_OP_LE_CS_INITIATOR_SNR_18 0x0
-#define BT_HCI_OP_LE_CS_INITIATOR_SNR_21 0x1
-#define BT_HCI_OP_LE_CS_INITIATOR_SNR_24 0x2
-#define BT_HCI_OP_LE_CS_INITIATOR_SNR_27 0x3
-#define BT_HCI_OP_LE_CS_INITIATOR_SNR_30 0x4
-#define BT_HCI_OP_LE_CS_INITIATOR_SNR_NOT_USED 0xFF
-
-#define BT_HCI_OP_LE_CS_REFLECTOR_SNR_18 0x0
-#define BT_HCI_OP_LE_CS_REFLECTOR_SNR_21 0x1
-#define BT_HCI_OP_LE_CS_REFLECTOR_SNR_24 0x2
-#define BT_HCI_OP_LE_CS_REFLECTOR_SNR_27 0x3
-#define BT_HCI_OP_LE_CS_REFLECTOR_SNR_30 0x4
-#define BT_HCI_OP_LE_CS_REFLECTOR_SNR_NOT_USED 0xFF
+#define BT_HCI_OP_LE_CS_SNR_18 0x0
+#define BT_HCI_OP_LE_CS_SNR_21 0x1
+#define BT_HCI_OP_LE_CS_SNR_24 0x2
+#define BT_HCI_OP_LE_CS_SNR_27 0x3
+#define BT_HCI_OP_LE_CS_SNR_30 0x4
+#define BT_HCI_OP_LE_CS_SNR_NOT_USED 0xFF
 
 #define BT_HCI_OP_LE_CS_TEST_OVERRIDE_CONFIG_0_MASK BIT(0)
 #define BT_HCI_OP_LE_CS_TEST_OVERRIDE_CONFIG_2_MASK BIT(2)
@@ -3547,7 +3540,7 @@ struct bt_hci_evt_le_cs_read_remote_supported_capabilities_complete {
 struct bt_hci_evt_le_cs_read_remote_fae_table_complete {
 	uint8_t status;
 	uint16_t conn_handle;
-	uint8_t remote_fae_table[72];
+	int8_t remote_fae_table[72];
 } __packed;
 
 #define BT_HCI_LE_CS_CONFIG_ACTION_REMOVED 0x00
@@ -3632,7 +3625,7 @@ struct bt_hci_evt_le_cs_config_complete {
 #define BT_HCI_LE_CS_TONE_EXT_SLOT_EXT_NOT_EXPECTED 0x1
 #define BT_HCI_LE_CS_TONE_EXT_SLOT_EXT_EXPECTED     0x2
 
-#define BT_HCI_LE_CS_TIME_DIFFERENCE_NOT_AVAILABLE 0x8000
+#define BT_HCI_LE_CS_TIME_DIFFERENCE_NOT_AVAILABLE ((int16_t)0x8000)
 
 #define BT_HCI_LE_CS_PACKET_NADM_ATTACK_EXT_UNLIKELY  0x00
 #define BT_HCI_LE_CS_PACKET_NADM_ATTACK_VERY_UNLIKELY 0x01

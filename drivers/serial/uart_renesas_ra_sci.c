@@ -301,7 +301,7 @@ static int uart_ra_sci_fifo_fill(const struct device *dev, const uint8_t *tx_dat
 {
 	struct uart_ra_sci_data *data = dev->data;
 	const struct uart_ra_sci_config *cfg = dev->config;
-	uint8_t num_tx = 0U;
+	int num_tx = 0U;
 
 #if CONFIG_UART_RA_SCI_UART_FIFO_ENABLE
 	if (data->sci.fifo_depth != 0) {
@@ -326,7 +326,7 @@ static int uart_ra_sci_fifo_read(const struct device *dev, uint8_t *rx_data, con
 {
 	struct uart_ra_sci_data *data = dev->data;
 	const struct uart_ra_sci_config *cfg = dev->config;
-	uint8_t num_rx = 0U;
+	int num_rx = 0U;
 
 #if CONFIG_UART_RA_SCI_UART_FIFO_ENABLE
 	if (data->sci.fifo_depth != 0) {
@@ -904,7 +904,7 @@ static void uart_ra_sci_tx_timeout_handler(struct k_work *work)
 
 #endif /* CONFIG_UART_ASYNC_API */
 
-static const struct uart_driver_api uart_ra_sci_driver_api = {
+static DEVICE_API(uart, uart_ra_sci_driver_api) = {
 	.poll_in = uart_ra_sci_poll_in,
 	.poll_out = uart_ra_sci_poll_out,
 	.err_check = uart_ra_sci_err_check,
