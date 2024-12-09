@@ -22,7 +22,6 @@ LOG_MODULE_REGISTER(usb_net, CONFIG_USB_DEVICE_NETWORK_LOG_LEVEL);
 static struct __netusb {
 	struct net_if *iface;
 	const struct netusb_function *func;
-	bool promisc_mode;
 } netusb;
 
 static int netusb_send(const struct device *dev, struct net_pkt *pkt)
@@ -53,25 +52,13 @@ struct net_if *netusb_net_iface(void)
 
 void netusb_recv(struct net_pkt *pkt)
 {
-    LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
+	LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
 
-    if (netusb.promisc_mode) {
-        // Pass all packets to the networking stack in promiscuous mode
-        LOG_DBG("Promiscuous mode: processing packet regardless of destination");
-        if (net_recv_data(netusb.iface, pkt) < 0) {
-            LOG_ERR("Packet %p dropped by NET stack", pkt);
-            net_pkt_unref(pkt);
-        }
-        return;
-    }
-
-    // Default behavior for normal mode
-    if (net_recv_data(netusb.iface, pkt) < 0) {
-        LOG_ERR("Packet %p dropped by NET stack", pkt);
-        net_pkt_unref(pkt);
-    }
+	if (net_recv_data(netusb.iface, pkt) < 0) {
+		LOG_ERR("Packet %p dropped by NET stack", pkt);
+		net_pkt_unref(pkt);
+	}
 }
-
 
 static int netusb_connect_media(void)
 {
@@ -134,22 +121,6 @@ bool netusb_enabled(void)
 	return !!netusb.func;
 }
 
-/* Function to set promiscuous mode */
-static int netusb_set_promisc_mode(bool enable)
-{
-	LOG_DBG("Setting promiscuous mode: %s", enable ? "ON" : "OFF");
-
-	netusb.promisc_mode = enable;
-
-	if (enable) {
-		LOG_INF("Promiscuous mode enabled");
-	} else {
-		LOG_INF("Promiscuous mode disabled");
-	}
-
-	return 0;
-}
-
 static void netusb_init(struct net_if *iface)
 {
 	static uint8_t mac[6] = { 0x00, 0x00, 0x5E, 0x00, 0x53, 0x00 };
@@ -157,7 +128,6 @@ static void netusb_init(struct net_if *iface)
 	LOG_DBG("netusb device initialization");
 
 	netusb.iface = iface;
-	netusb.promisc_mode = false; /* Default is disabled */
 
 	ethernet_init(iface);
 	net_if_carrier_off(iface);
@@ -172,9 +142,6 @@ static const struct ethernet_api netusb_api_funcs = {
 
 	.get_capabilities = NULL,
 	.send = netusb_send,
-
-	/* Add promiscuous mode support to the API */
-	.set_promisc_mode = netusb_set_promisc_mode,
 };
 
 static int netusb_init_dev(const struct device *dev)

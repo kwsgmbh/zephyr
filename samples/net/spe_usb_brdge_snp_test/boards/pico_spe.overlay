@@ -1,7 +1,0 @@
-&lan865x {
-    status = "okay";
-};
-
-&usb_net {
-    status = "okay";
-};
