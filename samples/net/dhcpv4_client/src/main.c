@@ -19,6 +19,9 @@ LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
 #include <zephyr/net/net_mgmt.h>
+#include <zephyr/usb/usb_device.h>
+#include <zephyr/net/net_config.h>
+
 
 #define DHCP_OPTION_NTP (42)
 
@@ -83,9 +86,22 @@ static void option_handler(struct net_dhcpv4_option_callback *cb,
 		net_addr_ntop(AF_INET, cb->data, buf, sizeof(buf)));
 }
 
+int init_usb(void)
+{
+	int ret;
+
+	ret = usb_enable(NULL);
+	if (ret != 0) {
+		printk("usb enable error %d\n", ret);
+	}
+	return 0;
+}
+
 int main(void)
 {
-	LOG_INF("Run dhcpv4 client");
+	LOG_INF("Run dhcpv4 client with usb");
+
+	init_usb();
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
 				     NET_EVENT_IPV4_ADDR_ADD);
@@ -98,5 +114,8 @@ int main(void)
 	net_dhcpv4_add_option_callback(&dhcp_cb);
 
 	net_if_foreach(start_dhcpv4_client, NULL);
+
+	net_if_set_promisc(netusb_net_iface());
+
 	return 0;
 }
