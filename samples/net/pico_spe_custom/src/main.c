@@ -1,7 +1,14 @@
-// / Networking DHCPv4 client with USB Network Bridging /
+/* Networking DHCPv4 client */
+
+/*
+ * Copyright (c) 2017 ARM Ltd.
+ * Copyright (c) 2016 Intel Corporation.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(pico_spe_custom_debug, LOG_LEVEL_DBG);
 
 #include <zephyr/kernel.h>
 #include <zephyr/linker/sections.h>
@@ -15,107 +22,110 @@ LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_config.h>
+#include <zephyr/net/dhcpv4_server.h>  // For DHCP server
+// #include <zephyr/subsys/net/ip/route.h>
+// #include <zephyr/subsys/net/l2/ethernet/bridge.h>
 
 #define DHCP_OPTION_NTP (42)
 
 static uint8_t ntp_server[4];
 
 static struct net_mgmt_event_callback mgmt_cb;
+
 static struct net_dhcpv4_option_callback dhcp_cb;
-
-static struct net_if *eth_iface;
-static struct net_if *usb_iface;
-
-static struct net_if_link_cb eth_link_cb;
-static struct net_if_link_cb usb_link_cb;
-// / Forward packets from one interface to another /
-static void forward_packet(struct net_pkt *pkt, struct net_if *dest_iface)
-{
-    if (!pkt || !dest_iface) {
-        LOG_ERR("Invalid packet or interface");
-        return;
-    }
-
-    net_pkt_ref(&pkt);
-
-    if (net_recv_data(dest_iface, pkt) < 0) {
-        LOG_ERR("Packet forwarding failed");
-        net_pkt_unref(pkt);
-    } else {
-        LOG_DBG("Packet forwarded successfully");
-    }
-}
-
-// / Ethernet packet handler /
-static void eth_recv_cb(struct net_if *iface, struct net_pkt *pkt)
-{
-    LOG_DBG("Packet received on Ethernet");
-    if (iface == eth_iface) {
-        forward_packet(&pkt, usb_iface);
-    }
-}
-
-// / USB packet handler /
-static void usb_recv_cb(struct net_if *iface, struct net_pkt pkt)
-{
-    LOG_DBG("Packet received on USB");
-    if (iface == usb_iface) {
-        forward_packet(&pkt, eth_iface);
-    }
-}
 
 static void start_dhcpv4_client(struct net_if *iface, void *user_data)
 {
-    ARG_UNUSED(user_data);
+	ARG_UNUSED(user_data);
 
-    LOG_INF("Start DHCPv4 on %s: index=%d", net_if_get_device(iface)->name,
-            net_if_get_by_iface(iface));
-    net_dhcpv4_start(iface);
+	LOG_INF("Start on %s: index=%d", net_if_get_device(iface)->name,
+		net_if_get_by_iface(iface));
+	net_dhcpv4_start(iface);
 }
 
-static void handler(struct net_mgmt_event_callback *cb,
-                    uint32_t mgmt_event,
-                    struct net_if *iface)
+static void start_dhcpv4_server(struct net_if *iface)
 {
-    int i = 0;
-
-    if (mgmt_event != NET_EVENT_IPV4_ADDR_ADD) {
+    int ret;
+    struct in_addr base_addr;
+    LOG_INF("entered into start server function\n");
+    if (net_addr_pton(AF_INET, "192.168.2.100", &base_addr) < 0) {
+        LOG_ERR("Invalid base address for DHCP server");
         return;
     }
 
-    for (i = 0; i < NET_IF_MAX_IPV4_ADDR; i++) {
-        char buf[NET_IPV4_ADDR_LEN];
+    LOG_INF("Start DHCP server on %s: index=%d", net_if_get_device(iface)->name,
+            net_if_get_by_iface(iface));
 
-        if (iface->config.ip.ipv4->unicast[i].ipv4.addr_type != NET_ADDR_DHCP) {
-            continue;
-        }
-
-        LOG_INF("   Address[%d]: %s", net_if_get_by_iface(iface),
-                net_addr_ntop(AF_INET,
-                              &iface->config.ip.ipv4->unicast[i].ipv4.address.in_addr,
-                              buf, sizeof(buf)));
-        LOG_INF("    Subnet[%d]: %s", net_if_get_by_iface(iface),
-                net_addr_ntop(AF_INET,
-                              &iface->config.ip.ipv4->unicast[i].netmask,
-                              buf, sizeof(buf)));
-        LOG_INF("    Router[%d]: %s", net_if_get_by_iface(iface),
-                net_addr_ntop(AF_INET,
-                              &iface->config.ip.ipv4->gw,
-                              buf, sizeof(buf)));
-        LOG_INF("Lease time[%d]: %u seconds", net_if_get_by_iface(iface),
-                iface->config.dhcpv4.lease_time);
+    ret = net_dhcpv4_server_start(iface, &base_addr);
+    if (ret != 0) {
+        LOG_ERR("Failed to start DHCP server: %d", ret);
     }
 }
 
-static void option_handler(struct net_dhcpv4_option_callback *cb,
-                           size_t length,
-                           enum net_dhcpv4_msg_type msg_type,
-                           struct net_if *iface)
+static void assign_static_ip(struct net_if *iface, const char *ip, const char *netmask, const char *gateway)
 {
-    char buf[NET_IPV4_ADDR_LEN];
+    struct in_addr addr, netmask_addr, gateway_addr;
 
-    LOG_INF("DHCP Option %d: %s", cb->option,
-            net_addr_ntop(AF_INET, cb->data, buf, sizeof(buf)));
+    // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
+
+    if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
+        net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
+        net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
+        LOG_ERR("Invalid static IP configuration");
+        return;
+    }
+
+    net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
+    net_if_ipv4_set_netmask(iface, &netmask_addr);
+    net_if_ipv4_set_gw(iface, &gateway_addr);
+}
+
+
+
+static void handler(struct net_mgmt_event_callback *cb,
+		    uint32_t mgmt_event,
+		    struct net_if *iface)
+{
+	int i = 0;
+
+	if (mgmt_event != NET_EVENT_IPV4_ADDR_ADD) {
+		return;
+	}
+
+	for (i = 0; i < NET_IF_MAX_IPV4_ADDR; i++) {
+		char buf[NET_IPV4_ADDR_LEN];
+
+		if (iface->config.ip.ipv4->unicast[i].ipv4.addr_type !=
+							NET_ADDR_DHCP) {
+			continue;
+		}
+
+		LOG_INF("   Address[%d]: %s", net_if_get_by_iface(iface),
+			net_addr_ntop(AF_INET,
+			    &iface->config.ip.ipv4->unicast[i].ipv4.address.in_addr,
+						  buf, sizeof(buf)));
+		LOG_INF("    Subnet[%d]: %s", net_if_get_by_iface(iface),
+			net_addr_ntop(AF_INET,
+				       &iface->config.ip.ipv4->unicast[i].netmask,
+				       buf, sizeof(buf)));
+		LOG_INF("    Router[%d]: %s", net_if_get_by_iface(iface),
+			net_addr_ntop(AF_INET,
+						 &iface->config.ip.ipv4->gw,
+						 buf, sizeof(buf)));
+		LOG_INF("Lease time[%d]: %u seconds", net_if_get_by_iface(iface),
+			iface->config.dhcpv4.lease_time);
+	}
+}
+
+static void option_handler(struct net_dhcpv4_option_callback *cb,
+			   size_t length,
+			   enum net_dhcpv4_msg_type msg_type,
+			   struct net_if *iface)
+{
+	char buf[NET_IPV4_ADDR_LEN];
+
+	LOG_INF("DHCP Option %d: %s", cb->option,
+		net_addr_ntop(AF_INET, cb->data, buf, sizeof(buf)));
 }
 
 int init_usb(void)
@@ -131,75 +141,53 @@ int init_usb(void)
     return 0;
 }
 
-void list_interfaces(struct net_if *iface, void *user_data)
-{
-    if (iface) {
-        LOG_INF("Interface: %s, Index: %d", net_if_get_device(iface)->name,
-                net_if_get_by_iface(iface));
-        
-        // If you are looking for specific interfaces like "eth_netusb":
-        if (strcmp(net_if_get_device(iface)->name, "eth_netusb") == 0) {
-            usb_iface = iface;  // Found USB interface
-            LOG_INF("USB Interface found: %s", net_if_get_device(iface)->name);
-        }
-    }
-}
-
 
 int main(void)
 {
-    LOG_INF("Run DHCPv4 client with USB bridging");
+	struct net_if *iface_bridge = net_if_get_by_index(1);
+    struct net_if *iface_lan = net_if_get_by_index(2); // LAN interface
+    struct net_if *iface_usb = net_if_get_by_index(3); // USB interface
+    
+    LOG_INF("Run dhcpv4 client");
 
+	net_mgmt_init_event_callback(&mgmt_cb, handler,
+				     NET_EVENT_IPV4_ADDR_ADD);
+	net_mgmt_add_event_callback(&mgmt_cb);
+
+    // Initialize USB interface (for netusb)
     if (init_usb() != 0) {
         LOG_ERR("Failed to initialize USB");
         return -1;
     }
-	net_if_foreach(list_interfaces, NULL);
-    // / Get the default network interfaces /
-    eth_iface = net_if_get_default();
-    if (!eth_iface) {
-        LOG_ERR("Failed to get default Ethernet interface");
-        return -1;
-    }
     
-    LOG_INF("VALUE OF ETH IFACE IS %d\n",eth_iface);
+
+	net_dhcpv4_init_option_callback(&dhcp_cb, option_handler,
+					DHCP_OPTION_NTP, ntp_server,
+					sizeof(ntp_server));
+
+	net_dhcpv4_add_option_callback(&dhcp_cb);
     
-     if (!usb_iface) {
-        LOG_ERR("USB interface not found");
-        return -1;
+  
+    
+    if (iface_lan) {
+        assign_static_ip(iface_lan, "192.168.1.2", "255.255.255.0", "192.168.1.254");
+    } else {
+        LOG_ERR("Failed to get LAN interface");
     }
 
-    LOG_INF("VALUE OF USB IFACE IS %d\n",usb_iface);
-
-    if (!eth_iface || !usb_iface) {
-        LOG_ERR("Failed to get network interfaces");
-        return -1;
+    if (iface_usb) {
+        assign_static_ip(iface_usb, "192.168.1.3", "255.255.255.0", "192.168.1.254");
+    } else {
+        LOG_ERR("Failed to get USB interface");
     }
+    if (iface_bridge) {
+        assign_static_ip(iface_lan, "192.168.1.4", "255.255.255.0", "192.168.1.254");
+        net_if_up(iface_bridge);
+    } else {
+        LOG_ERR("Failed to get LAN interface");
+    }
+    // setup_routing();
 
-    // / Set up packet callbacks /
-    // net_if_register_link_cb(eth_iface, eth_recv_cb);
-    // net_if_register_link_cb(usb_iface, usb_recv_cb);
-    net_if_register_link_cb(&eth_link_cb, eth_recv_cb);
-    LOG_INF("Ethernet callback registered");
-
-    // Register the USB receive callback
-    net_if_register_link_cb(&usb_link_cb, usb_recv_cb);
-    LOG_INF("USB callback registered");
-    // / Initialize DHCP and event callbacks /
-    net_mgmt_init_event_callback(&mgmt_cb, handler,
-                                 NET_EVENT_IPV4_ADDR_ADD);
-    net_mgmt_add_event_callback(&mgmt_cb);
-
-    net_dhcpv4_init_option_callback(&dhcp_cb, option_handler,
-                                    DHCP_OPTION_NTP, ntp_server,
-                                    sizeof(ntp_server));
-
-    net_dhcpv4_add_option_callback(&dhcp_cb);
-
-    // / Start DHCPv4 client on all interfaces /
-    net_if_foreach(start_dhcpv4_client, NULL);
-
-    LOG_INF("Bridge initialized successfully");
-
-    return 0;
+	net_if_foreach(start_dhcpv4_client, NULL);
+	return 0;
 }
