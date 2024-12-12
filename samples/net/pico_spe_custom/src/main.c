@@ -9,8 +9,9 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(pico_spe_custom_debug, LOG_LEVEL_DBG);
-
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+
 #include <zephyr/linker/sections.h>
 #include <errno.h>
 #include <stdio.h>
@@ -22,12 +23,14 @@ LOG_MODULE_REGISTER(pico_spe_custom_debug, LOG_LEVEL_DBG);
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_config.h>
-#include <zephyr/net/dhcpv4_server.h>  // For DHCP server
+#include <zephyr/net/dhcpv4_server.h> 
+#include "netusb.h"
 // #include <zephyr/subsys/net/ip/route.h>
 // #include <zephyr/subsys/net/l2/ethernet/bridge.h>
-
+#define SLEEP_TIME_MS   1000
+#define LED0_NODE DT_ALIAS(led0)
 #define DHCP_OPTION_NTP (42)
-
+#define LED_PIN 25
 static uint8_t ntp_server[4];
 
 static struct net_mgmt_event_callback mgmt_cb;
@@ -36,6 +39,55 @@ static struct net_dhcpv4_option_callback dhcp_cb;
 
 static struct net_if *eth_iface;
 static struct net_if *usb_iface;
+
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+
+void toggle_led(void)
+{
+    int ret;
+	bool led_state = true;
+
+	if (!gpio_is_ready_dt(&led)) {
+		return 0;
+	}
+
+	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
+	if (ret < 0) {
+		return 0;
+	}
+
+	while (1) {
+		ret = gpio_pin_toggle_dt(&led);
+		if (ret < 0) {
+			return 0;
+		}
+
+		led_state = !led_state;
+		printf("LED state: %s\n", led_state ? "ON" : "OFF");
+		k_msleep(SLEEP_TIME_MS);
+	}
+}
+
+int netusb_send( const struct device *dev, struct net_pkt *pkt);
+
+
+
+static int my_connect_media(bool status)
+{
+    LOG_INF("Media connection status: %s", status ? "connected" : "disconnected");
+    return 0;
+}
+
+static int my_send_pkt(struct net_pkt *pkt)
+{
+    LOG_INF("Sending packet, length: %zu", net_pkt_get_len(pkt));
+    return 0;
+}
+
+static const struct netusb_function my_netusb_function = {
+    .connect_media = my_connect_media,
+    .send_pkt = my_send_pkt,
+};
 
 static void start_dhcpv4_client(struct net_if *iface, void *user_data)
 {
@@ -162,7 +214,7 @@ static void forward_packet(struct net_pkt *pkt, struct net_if *dest_iface)
 }
 
 // / Ethernet packet handler /
-static void eth_recv_cb(struct net_if *iface, struct net_pkt pkt)
+static void eth_recv_cb(struct net_if *iface, struct net_pkt *pkt)
 {
     LOG_INF("Packet received on Ethernet");
     if (iface == eth_iface) {
@@ -171,7 +223,7 @@ static void eth_recv_cb(struct net_if *iface, struct net_pkt pkt)
 }
 
 // / USB packet handler /
-static void usb_recv_cb(struct net_if *iface, struct net_pkt pkt)
+static void usb_recv_cb(struct net_if *iface, struct net_pkt *pkt)
 {
     LOG_INF("Packet received on USB");
     if (iface == usb_iface) {
@@ -179,12 +231,48 @@ static void usb_recv_cb(struct net_if *iface, struct net_pkt pkt)
     }
 }
 
+static void simulate_packet_reception(struct net_if *src_iface, struct net_if *dest_iface)
+{
+    struct net_pkt *pkt = net_pkt_alloc_with_buffer(src_iface, 128, AF_INET, IPPROTO_UDP, K_NO_WAIT);
+    if (!pkt) {
+        LOG_ERR("Failed to allocate packet");
+        return;
+    }
+	LOG_DBG("****%d*****",src_iface);
+    // Add dummy data to packet
+    uint8_t *data = net_pkt_data(pkt);
+    for (int i = 0; i < 128; i++) {
+        data[i] = i % 256;
+		// LOG_DBG("****%d*****",i);
+    }
+
+    // Set packet length (replace net_pkt_set_len if unavailable)
+    // if (net_pkt_set_data(pkt, 128) < 0) {
+    //     LOG_ERR("Failed to set packet data length");
+    //     net_pkt_unref(pkt);
+    //     return;
+    // }
+
+    // // Simulate reception
+    // if (src_iface == eth_iface) {
+    //     eth_recv_cb(src_iface, pkt);
+    // } else if (src_iface == usb_iface) {
+    //     usb_recv_cb(src_iface, pkt);
+    // }
+
+    // // Free packet
+    // net_pkt_unref(pkt);
+}
+
+
+
+
 int main(void)
 {
 	// struct net_if *iface_bridge = net_if_get_by_index(1);
     struct net_if *iface_lan = net_if_get_by_index(1); // LAN interface
     struct net_if *iface_usb = net_if_get_by_index(2); // USB interface
-    
+    // toggle_led();
     LOG_INF("Run dhcpv4 client");
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
@@ -205,7 +293,7 @@ int main(void)
 	net_dhcpv4_add_option_callback(&dhcp_cb);
     
   
-    
+    netusb_enable(&my_netusb_function);
     if (iface_lan) {
         assign_static_ip(iface_lan, "192.168.1.2", "255.255.255.0", "192.168.1.254");
     } else {
@@ -217,14 +305,15 @@ int main(void)
     } else {
         LOG_ERR("Failed to get USB interface");
     }
-
+	/*
 	net_if_register_link_cb(&iface_lan, eth_recv_cb);
 	LOG_DBG("register called 1st\n");
     net_if_register_link_cb(&iface_usb, usb_recv_cb);
 	LOG_DBG("register called 2ND\n");
 	// start_dhcpv4_server(&iface_usb);
-
-
+	*/
+	// simulate_packet_reception(eth_iface, usb_iface); // Test Ethernet to USB
+    // simulate_packet_reception(&usb_iface, &eth_iface); // Test USB to Ethernet
 	// net_if_foreach(start_dhcpv4_client, NULL);
 	return 0;
 }
