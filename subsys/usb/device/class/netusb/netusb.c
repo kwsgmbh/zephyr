@@ -60,28 +60,6 @@ void netusb_recv(struct net_pkt *pkt)
 	}
 }
 
-// // Pass all packets to the networking stack in promiscuous mode
-//         LOG_DBG("Promiscuous mode: processing packet regardless of destination");
-//         if (net_recv_data(netusb.iface, pkt) < 0) {
-//             LOG_ERR("Packet %p dropped by NET stack", pkt);
-//             net_pkt_unref(pkt);
-//         }
-
-static int netusb_set_promisc_mode(const struct device *dev, bool enable)
-{
-    ARG_UNUSED(dev); // The dev parameter is not used for now.
-
-    if (enable) {
-        LOG_INF("Enabling promiscuous mode for NetUSB");
-        netusb.promisc_mode = true;
-    } else {
-        LOG_INF("Disabling promiscuous mode for NetUSB");
-        netusb.promisc_mode = false;
-    }
-
-    return 0; // Return success.
-}
-
 static int netusb_connect_media(void)
 {
 	LOG_DBG("");
@@ -164,7 +142,6 @@ static const struct ethernet_api netusb_api_funcs = {
 
 	.get_capabilities = NULL,
 	.send = netusb_send,
-	.set_promisc_mode = netusb_set_promisc_mode,
 };
 
 static int netusb_init_dev(const struct device *dev)

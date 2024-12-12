@@ -34,6 +34,9 @@ static struct net_mgmt_event_callback mgmt_cb;
 
 static struct net_dhcpv4_option_callback dhcp_cb;
 
+static struct net_if *eth_iface;
+static struct net_if *usb_iface;
+
 static void start_dhcpv4_client(struct net_if *iface, void *user_data)
 {
 	ARG_UNUSED(user_data);
@@ -141,12 +144,46 @@ int init_usb(void)
     return 0;
 }
 
+static void forward_packet(struct net_pkt *pkt, struct net_if *dest_iface)
+{
+    if (!pkt || !dest_iface) {
+        LOG_ERR("Invalid packet or interface");
+        return;
+    }
+
+    net_pkt_ref(pkt);
+
+    if (net_recv_data(dest_iface, pkt) < 0) {
+        LOG_ERR("Packet forwarding failed");
+        net_pkt_unref(pkt);
+    } else {
+        LOG_INF("Packet forwarded successfully");
+    }
+}
+
+// / Ethernet packet handler /
+static void eth_recv_cb(struct net_if *iface, struct net_pkt pkt)
+{
+    LOG_INF("Packet received on Ethernet");
+    if (iface == eth_iface) {
+        forward_packet(&pkt, usb_iface);
+    }
+}
+
+// / USB packet handler /
+static void usb_recv_cb(struct net_if *iface, struct net_pkt pkt)
+{
+    LOG_INF("Packet received on USB");
+    if (iface == usb_iface) {
+        forward_packet(&pkt, eth_iface);
+    }
+}
 
 int main(void)
 {
-	struct net_if *iface_bridge = net_if_get_by_index(1);
-    struct net_if *iface_lan = net_if_get_by_index(2); // LAN interface
-    struct net_if *iface_usb = net_if_get_by_index(3); // USB interface
+	// struct net_if *iface_bridge = net_if_get_by_index(1);
+    struct net_if *iface_lan = net_if_get_by_index(1); // LAN interface
+    struct net_if *iface_usb = net_if_get_by_index(2); // USB interface
     
     LOG_INF("Run dhcpv4 client");
 
@@ -180,14 +217,14 @@ int main(void)
     } else {
         LOG_ERR("Failed to get USB interface");
     }
-    if (iface_bridge) {
-        assign_static_ip(iface_lan, "192.168.1.4", "255.255.255.0", "192.168.1.254");
-        net_if_up(iface_bridge);
-    } else {
-        LOG_ERR("Failed to get LAN interface");
-    }
-    // setup_routing();
 
-	net_if_foreach(start_dhcpv4_client, NULL);
+	net_if_register_link_cb(&iface_lan, eth_recv_cb);
+	LOG_DBG("register called 1st\n");
+    net_if_register_link_cb(&iface_usb, usb_recv_cb);
+	LOG_DBG("register called 2ND\n");
+	// start_dhcpv4_server(&iface_usb);
+
+
+	// net_if_foreach(start_dhcpv4_client, NULL);
 	return 0;
 }
