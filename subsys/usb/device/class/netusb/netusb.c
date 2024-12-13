@@ -24,13 +24,15 @@ static struct __netusb {
 	const struct netusb_function *func;
 } netusb;
 
-static int netusb_send(const struct device *dev, struct net_pkt *pkt)
+ int netusb_send(const struct device *dev, struct net_pkt *pkt)
 {
 	int ret;
 
 	ARG_UNUSED(dev);
 
-	LOG_DBG("Send pkt, len %zu", net_pkt_get_len(pkt));
+	LOG_INF("Send pktOO, len %zu", net_pkt_get_len(pkt));
+
+	LOG_INF("Send device %s ", dev->name);
 
 	if (!netusb_enabled()) {
 		LOG_ERR("interface disabled");
