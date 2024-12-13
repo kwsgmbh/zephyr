@@ -35,13 +35,13 @@ static struct net_mgmt_event_callback mgmt_cb;
 
 static struct net_dhcpv4_option_callback dhcp_cb;
 
+#define APP_ADD 1
 
 
+#if APP_ADD
 static struct net_if *eth_iface;
 static struct net_if *net_usb;
 int netusb_send( const struct device *dev, struct net_pkt *pkt);
-
-
 
 static int my_connect_media(bool status)
 {
@@ -68,6 +68,34 @@ static void start_dhcpv4_client(struct net_if *iface, void *user_data)
 		net_if_get_by_iface(iface));
 	net_dhcpv4_start(iface);
 }
+
+
+static void assign_static_ip(struct net_if *iface, const char *ip, const char *netmask, const char *gateway)
+{
+    struct in_addr addr, netmask_addr, gateway_addr;
+
+    // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
+
+    if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
+        net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
+        net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
+        LOG_ERR("Invalid static IP configuration");
+        return;
+    }
+
+    net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
+    net_if_ipv4_set_netmask(iface, &netmask_addr);
+    net_if_ipv4_set_gw(iface, &gateway_addr);
+}
+
+
+
+
+
+
+#endif
+
+
 
 static void handler(struct net_mgmt_event_callback *cb,
 		    uint32_t mgmt_event,
@@ -127,7 +155,7 @@ int init_usb(void)
     return 0;
 }
 
-
+#if APP_ADD
 static void send_sample_data(void) {
 		struct net_pkt *pkt;
     int ret;
@@ -136,6 +164,18 @@ eth_iface = net_if_get_default();
 net_usb = net_if_get_by_index(2);
 LOG_INF("Start on name xxxx %s  ", net_if_get_device(eth_iface)->name);
 LOG_INF("Startxx %s", net_usb->if_dev->dev->name);
+
+if (eth_iface) {
+        assign_static_ip(eth_iface, "192.168.1.2", "255.255.255.0", "192.168.1.254");
+    } else {
+        LOG_ERR("Failed to get LAN interface");
+    }
+
+    if (net_usb) {
+        assign_static_ip(net_usb, "192.168.1.3", "255.255.255.0", "192.168.1.254");
+    } else {
+        LOG_ERR("Failed to get USB interface");
+    }
 
    netusb_enable(&my_netusb_function);
 
@@ -179,7 +219,7 @@ else{
 
 }
 
-
+#endif
 
 
 int   main(void)
