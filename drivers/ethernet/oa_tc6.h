@@ -113,9 +113,8 @@ struct oa_tc6 {
 };
 
 typedef struct {
-	uint8_t mms;
-	uint8_t address;
-	uint16_t value;
+	uint32_t address;
+	uint32_t value;
 } oa_mem_map_t;
 
 /**

@@ -89,9 +89,7 @@ int main(void)
 	display_blanking_off(display_dev);
 
 	while (1) {
-		uint32_t sleep_ms = lv_task_handler();
-
-		k_msleep(MIN(sleep_ms, INT32_MAX));
+		k_msleep(lv_task_handler());
 	}
 
 	return 0;

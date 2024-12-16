@@ -5,14 +5,9 @@
  */
 
 #include <ctype.h>
-#include <zephyr/bluetooth/conn.h>
-#include <zephyr/bluetooth/gap.h>
 #include <zephyr/kernel.h>
 #include <string.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <zephyr/sys/util.h>
-#include <zephyr/sys_clock.h>
 #include <zephyr/types.h>
 
 
@@ -1051,12 +1046,6 @@ static int change_central_settings(void)
 
 static int central_create_connection(void)
 {
-	/* Give the controller a large range of intervals to pick from. In this benchmark sample we
-	 * want to prioritize ISO over ACL, but will leave the actual choice up to the controller.
-	 */
-	const struct bt_le_conn_param *conn_param =
-		BT_LE_CONN_PARAM(BT_GAP_INIT_CONN_INT_MIN, BT_GAP_MS_TO_CONN_INTERVAL(500U), 0,
-				 BT_GAP_MS_TO_CONN_TIMEOUT(4000));
 	int err;
 
 	advertiser_found = false;
@@ -1082,7 +1071,8 @@ static int central_create_connection(void)
 	}
 
 	LOG_INF("Connecting");
-	err = bt_conn_le_create(&adv_addr, BT_CONN_LE_CREATE_CONN, conn_param, &default_conn);
+	err = bt_conn_le_create(&adv_addr, BT_CONN_LE_CREATE_CONN,
+				BT_LE_CONN_PARAM_DEFAULT, &default_conn);
 	if (err != 0) {
 		LOG_ERR("Create connection failed: %d", err);
 		return err;
@@ -1099,6 +1089,7 @@ static int central_create_connection(void)
 
 static int central_create_cig(void)
 {
+	struct bt_iso_connect_param connect_param[CONFIG_BT_ISO_MAX_CHAN];
 	int err;
 
 	iso_conn_start_time = 0;
@@ -1110,16 +1101,6 @@ static int central_create_cig(void)
 		LOG_ERR("Failed to create CIG: %d", err);
 		return err;
 	}
-
-	return 0;
-}
-
-static int central_connect_cis(void)
-{
-	struct bt_iso_connect_param connect_param[CONFIG_BT_ISO_MAX_CHAN];
-	int err;
-
-	iso_conn_start_time = 0;
 
 	LOG_INF("Connecting ISO channels");
 
@@ -1224,26 +1205,15 @@ static int run_central(void)
 		}
 	}
 
-	/* Creating the CIG before connecting verified that it's possible before establishing a
-	 * connection, while also providing the controller information about our use case before
-	 * creating the connection, which should provide additional information to the controller
-	 * about which connection interval to use
-	 */
-	err = central_create_cig();
-	if (err != 0) {
-		LOG_ERR("Failed to create CIG: %d", err);
-		return err;
-	}
-
 	err = central_create_connection();
 	if (err != 0) {
 		LOG_ERR("Failed to create connection: %d", err);
 		return err;
 	}
 
-	err = central_connect_cis();
+	err = central_create_cig();
 	if (err != 0) {
-		LOG_ERR("Failed to connect CISes: %d", err);
+		LOG_ERR("Failed to create CIG or connect CISes: %d", err);
 		return err;
 	}
 

@@ -18,6 +18,7 @@ LOG_MODULE_REGISTER(usb_net, CONFIG_USB_DEVICE_NETWORK_LOG_LEVEL);
 #include <usb_descriptor.h>
 
 #include "netusb.h"
+#include <bridged_iface_utils.h>
 
 static struct __netusb {
 	struct net_if *iface;
@@ -50,14 +51,35 @@ struct net_if *netusb_net_iface(void)
 	return netusb.iface;
 }
 
+// void netusb_recv(struct net_pkt *pkt)
+// {
+// 	LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
+
+// 	if (net_recv_data(netusb.iface, pkt) < 0) {
+// 		LOG_ERR("Packet %p dropped by NET stack", pkt);
+// 		net_pkt_unref(pkt);
+// 	}
+// }
+
+/*code for forwading packets to ethernet */  
+
 void netusb_recv(struct net_pkt *pkt)
 {
-	LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
+    LOG_DBG("Received packet, len %zu", net_pkt_get_len(pkt));
 
-	if (net_recv_data(netusb.iface, pkt) < 0) {
-		LOG_ERR("Packet %p dropped by NET stack", pkt);
-		net_pkt_unref(pkt);
-	}
+    if (!pkt || !eth_iface) {
+        LOG_ERR("Invalid packet or target interface");
+        net_pkt_unref(pkt);
+        return;
+    }
+
+    // Forward the packet to the Ethernet interface
+    if (net_recv_data(eth_iface, pkt) < 0) {
+        LOG_ERR("Packet %p dropped by NET stack", pkt);
+        net_pkt_unref(pkt);
+    } else {
+        LOG_DBG("Packet forwarded to Ethernet interface");
+    }
 }
 
 static int netusb_connect_media(void)
@@ -149,6 +171,7 @@ static int netusb_init_dev(const struct device *dev)
 	ARG_UNUSED(dev);
 	return 0;
 }
+
 
 NET_DEVICE_INIT(eth_netusb, "eth_netusb", netusb_init_dev, NULL, NULL, NULL,
 		CONFIG_ETH_INIT_PRIORITY, &netusb_api_funcs, ETHERNET_L2,

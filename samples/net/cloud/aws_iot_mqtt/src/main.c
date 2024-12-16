@@ -5,6 +5,7 @@
  */
 
 #include "creds/creds.h"
+#include "dhcp.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -13,9 +14,11 @@
 #include <zephyr/net/socket.h>
 #include <zephyr/net/dns_resolve.h>
 #include <zephyr/net/mqtt.h>
+#include <zephyr/net/sntp.h>
 #include <zephyr/net/tls_credentials.h>
 #include <zephyr/data/json.h>
 #include <zephyr/random/random.h>
+#include <zephyr/posix/time.h>
 #include <zephyr/logging/log.h>
 
 
@@ -126,7 +129,6 @@ static int publish_message(const char *topic, size_t topic_len, uint8_t *payload
 	struct mqtt_publish_param msg;
 
 	msg.retain_flag = 0u;
-	msg.dup_flag = 0u;
 	msg.message.topic.topic.utf8 = topic;
 	msg.message.topic.topic.size = topic_len;
 	msg.message.topic.qos = CONFIG_AWS_QOS;
@@ -419,6 +421,26 @@ cleanup:
 	fds.fd = -1;
 }
 
+int sntp_sync_time(void)
+{
+	int rc;
+	struct sntp_time now;
+	struct timespec tspec;
+
+	rc = sntp_simple(SNTP_SERVER, SYS_FOREVER_MS, &now);
+	if (rc == 0) {
+		tspec.tv_sec = now.seconds;
+		tspec.tv_nsec = ((uint64_t)now.fraction * (1000lu * 1000lu * 1000lu)) >> 32;
+
+		clock_settime(CLOCK_REALTIME, &tspec);
+
+		LOG_DBG("Acquired time from NTP server: %u", (uint32_t)tspec.tv_sec);
+	} else {
+		LOG_ERR("Failed to acquire SNTP, code %d\n", rc);
+	}
+	return rc;
+}
+
 static int resolve_broker_addr(struct sockaddr_in *broker)
 {
 	int ret;
@@ -451,6 +473,12 @@ static int resolve_broker_addr(struct sockaddr_in *broker)
 
 int main(void)
 {
+#if defined(CONFIG_NET_DHCPV4)
+	app_dhcpv4_startup();
+#endif
+
+	sntp_sync_time();
+
 	setup_credentials();
 
 	for (;;) {

@@ -14,13 +14,18 @@ LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
 #include <zephyr/linker/sections.h>
 #include <errno.h>
 #include <stdio.h>
-
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
 #include <zephyr/net/net_mgmt.h>
-
+#include <zephyr/usb/usb_device.h>
+#include <zephyr/net/net_config.h>
+#include <bridged_iface_utils.h>
+#include <bridged_iface_utils.h>
 #define DHCP_OPTION_NTP (42)
+
+struct net_if *eth_iface = NULL;
+struct net_if *usb_iface = NULL;
 
 static uint8_t ntp_server[4];
 
@@ -83,9 +88,57 @@ static void option_handler(struct net_dhcpv4_option_callback *cb,
 		net_addr_ntop(AF_INET, cb->data, buf, sizeof(buf)));
 }
 
+int init_usb(void)
+{
+	int ret;
+
+	ret = usb_enable(NULL);
+	if (ret != 0) {
+		printk("usb enable error %d\n", ret);
+	}
+	return 0;
+}
+
+static void assign_static_ip(struct net_if *iface, const char *ip, const char *netmask, const char *gateway)
+{
+    struct in_addr addr, netmask_addr, gateway_addr;
+ 
+    // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
+ 
+    if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
+        net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
+        net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
+        LOG_ERR("Invalid static IP configuration");
+        return;
+    }
+ 
+    net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
+    net_if_ipv4_set_netmask(iface, &netmask_addr);
+    net_if_ipv4_set_gw(iface, &gateway_addr);
+}
+ 
+
 int main(void)
 {
-	LOG_INF("Run dhcpv4 client");
+	LOG_INF("Run dhcpv4 client with usb");
+
+	eth_iface = net_if_get_by_index(1); // LAN interface
+    usb_iface = net_if_get_by_index(2); // USB interface
+
+	init_usb();
+
+	if (eth_iface) {
+        assign_static_ip(eth_iface, "192.168.1.2", "255.255.255.0", "192.168.1.254");
+    } else {
+        LOG_ERR("Failed to get LAN interface");
+    }
+
+    if (usb_iface) {
+        assign_static_ip(usb_iface, "192.168.1.3", "255.255.255.0", "192.168.1.254");
+    } else {
+        LOG_ERR("Failed to get USB interface");
+    }
+
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
 				     NET_EVENT_IPV4_ADDR_ADD);
@@ -98,5 +151,6 @@ int main(void)
 	net_dhcpv4_add_option_callback(&dhcp_cb);
 
 	net_if_foreach(start_dhcpv4_client, NULL);
+
 	return 0;
 }

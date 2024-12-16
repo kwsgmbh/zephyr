@@ -8,10 +8,7 @@ Overview
 ********
 
 This sample controls 9 LEDs connected to an LP5569 driver. The sample turns
-all LEDs on one by one with a 1 second delay between each. Then it fades all
-LEDs until they are off again. Afterwards, it turns them all on at once, waits
-a second, and turns them all back off.
-This pattern then repeats indefinitely.
+all LEDs on and switches all LEDs off again within a one second interval.
 
 Building and Running
 ********************

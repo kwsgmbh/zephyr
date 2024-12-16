@@ -7,7 +7,6 @@ config ETH_NUMAKER
 	bool "Nuvoton NUMAKER MCU Ethernet driver"
 	default y
 	select HAS_NUMAKER_ETH
-	select PINCTRL
 	depends on DT_HAS_NUVOTON_NUMAKER_ETHERNET_ENABLED
 	help
 	  This option enables the Ethernet driver for Nuvoton NuMaker family of

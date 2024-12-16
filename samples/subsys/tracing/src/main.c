@@ -9,7 +9,6 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/usb/usb_device.h>
-#include <zephyr/tracing/tracing.h>
 
 /*
  * The hello world demo has two threads that utilize semaphores and sleeping

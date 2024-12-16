@@ -1,9 +1,8 @@
 # Copyright (c) 2023 Lucas Dietrich <ld.adecy@gmail.com>
 # SPDX-License-Identifier: Apache-2.0
 
-import glob
 import os
-
+import glob
 
 def bin2array(name, fin, fout):
     with open(fin, 'rb') as f:
