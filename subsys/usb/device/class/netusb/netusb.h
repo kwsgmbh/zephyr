@@ -22,6 +22,8 @@
 struct netusb_function {
 	int (*connect_media)(bool status);
 	int (*send_pkt)(struct net_pkt *pkt);
+
+	
 };
 
 struct net_if *netusb_net_iface(void);

@@ -396,7 +396,55 @@ static void lan865x_int_callback(const struct device *dev,
 	k_sem_give(&ctx->int_sem);
 }
 
-static void lan865x_read_chunks(const struct device *dev)
+//static void lan865x_read_chunks(const struct device *dev)
+
+
+void lan865x_read_chunks(const struct device *dev)
+{
+    const struct lan865x_config *cfg = dev->config;
+    struct lan865x_data *ctx = dev->data;
+    struct oa_tc6 *tc6 = ctx->tc6;
+    struct net_pkt *pkt;
+    int ret;
+
+    pkt = net_pkt_rx_alloc(K_MSEC(cfg->timeout));
+    if (!pkt) {
+        LOG_INF("OA RX: Could not allocate packet!");
+        return;
+    }
+
+    k_sem_take(&ctx->tx_rx_sem, K_FOREVER);
+    ret = oa_tc6_read_chunks(tc6, pkt);
+    if (ret < 0) {
+        eth_stats_update_errors_rx(ctx->iface);
+        net_pkt_unref(pkt);
+        k_sem_give(&ctx->tx_rx_sem);
+        return;
+    }
+
+    /* Print the received packet data */
+    LOG_INF("Received Packet Length: %zu", net_pkt_get_len(pkt));
+
+    struct net_buf *frag;
+    size_t offset = 0;
+
+    for (frag = pkt->frags; frag; frag = frag->frags) {
+        LOG_INF("Fragment %zu, Length: %u", offset, frag->len);
+        LOG_HEXDUMP_INF(frag->data, frag->len, "Packet Data");
+        offset += frag->len;
+    }
+
+    /* Feed buffer frame to IP stack */
+    ret = net_recv_data(ctx->iface, pkt);
+    if (ret < 0) {
+        LOG_ERR("OA RX: Could not process packet (%d)!", ret);
+        net_pkt_unref(pkt);
+    }
+
+    k_sem_give(&ctx->tx_rx_sem);
+}
+#if 0
+ void lan865x_read_chunks(const struct device *dev)
 {
 	const struct lan865x_config *cfg = dev->config;
 	struct lan865x_data *ctx = dev->data;
@@ -404,9 +452,12 @@ static void lan865x_read_chunks(const struct device *dev)
 	struct net_pkt *pkt;
 	int ret;
 
+
+
 	pkt = net_pkt_rx_alloc(K_MSEC(cfg->timeout));
 	if (!pkt) {
-		LOG_ERR("OA RX: Could not allocate packet!");
+		LOG_INF("OA RX: Could not allocate packet!");
+
 		return;
 	}
 
@@ -428,13 +479,17 @@ static void lan865x_read_chunks(const struct device *dev)
 	k_sem_give(&ctx->tx_rx_sem);
 }
 
+#endif
+
+
+
 static void lan865x_int_thread(const struct device *dev)
 {
 	struct lan865x_data *ctx = dev->data;
 	struct oa_tc6 *tc6 = ctx->tc6;
 	uint32_t sts, val, ftr;
 	int ret;
-
+LOG_INF("Send devicelan865x_int_thread  %s ", dev->name); 
 	while (true) {
 		k_sem_take(&ctx->int_sem, K_FOREVER);
 		if (!ctx->reset) {

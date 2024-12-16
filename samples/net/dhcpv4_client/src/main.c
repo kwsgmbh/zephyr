@@ -51,13 +51,18 @@ static int my_connect_media(bool status)
 
 static int my_send_pkt(struct net_pkt *pkt)
 {
-    LOG_INF("Sending packet, length: %zu", net_pkt_get_len(pkt));
+    LOG_INF("Sendingxx packet, length: %zu", net_pkt_get_len(pkt));
+    
+
+
+     
     return 0;
 }
 
 static const struct netusb_function my_netusb_function = {
     .connect_media = my_connect_media,
     .send_pkt = my_send_pkt,
+    
 };
 
 static void start_dhcpv4_client(struct net_if *iface, void *user_data)
@@ -210,6 +215,10 @@ else{
    // ret = netusb_send(net_usb->if_dev->dev, pkt);
 
 	ret = netusb_send(eth_iface->if_dev->dev, pkt);
+
+
+
+   
     if (ret < 0) {
         LOG_ERR("Failed to send data, error %d", ret);
     } else {
@@ -232,6 +241,10 @@ int   main(void)
         return -1;
     }
 
+send_sample_data();
+printf("sending \n");
+
+
 
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
@@ -241,7 +254,7 @@ int   main(void)
 
 	
 
-#if 1
+#if 0
 	net_dhcpv4_init_option_callback(&dhcp_cb, option_handler,
 					DHCP_OPTION_NTP, ntp_server,
 					sizeof(ntp_server));
@@ -252,8 +265,7 @@ int   main(void)
 
 
 
-send_sample_data();
-printf("sending \n");
+
 
 	
 

@@ -30,7 +30,7 @@ static struct __netusb {
 
 	ARG_UNUSED(dev);
 
-	LOG_INF("Send pktOO, len %zu", net_pkt_get_len(pkt));
+	LOG_INF("Send pktOxxO, len %zu", net_pkt_get_len(pkt));
 
 	LOG_INF("Send device %s ", dev->name);
 
@@ -40,6 +40,7 @@ static struct __netusb {
 	}
 
 	ret = netusb.func->send_pkt(pkt);
+	
 	if (ret) {
 		return ret;
 	}

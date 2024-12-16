@@ -10,6 +10,10 @@ FILE(GLOB app_sources src/*.c)
 # Add include directories
 include_directories(
   ${ZEPHYR_BASE}/subsys/usb/device/class/netusb
+
+  ${ZEPHYR_BASE}/drivers/ethernet
+
+ #/home/jinu/git/test-pico_spe/zephyrproject/zephyr/drivers/ethernet/eth_lan865x.c
 )
 
 # Add source files to the 'app' target
