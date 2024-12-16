@@ -217,7 +217,7 @@ else{
 	ret = netusb_send(eth_iface->if_dev->dev, pkt);
 
 
-
+ lan865x_port_send(eth_iface->if_dev->dev, pkt);
    
     if (ret < 0) {
         LOG_ERR("Failed to send data, error %d", ret);
@@ -241,20 +241,28 @@ int   main(void)
         return -1;
     }
 
+
+
+
+while(1){
+
 send_sample_data();
 printf("sending \n");
+k_msleep(5000);
 
 
+}
 
 
-	net_mgmt_init_event_callback(&mgmt_cb, handler,
-				     NET_EVENT_IPV4_ADDR_ADD);
-	net_mgmt_add_event_callback(&mgmt_cb);
 
 
 	
 
 #if 0
+
+	net_mgmt_init_event_callback(&mgmt_cb, handler,
+				     NET_EVENT_IPV4_ADDR_ADD);
+	net_mgmt_add_event_callback(&mgmt_cb);
 	net_dhcpv4_init_option_callback(&dhcp_cb, option_handler,
 					DHCP_OPTION_NTP, ntp_server,
 					sizeof(ntp_server));

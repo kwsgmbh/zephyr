@@ -603,7 +603,9 @@ static int lan865x_init(const struct device *dev)
 	return lan865x_gpio_reset(dev);
 }
 
-static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
+//static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
+
+ int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
 {
 	struct lan865x_data *ctx = dev->data;
 	struct oa_tc6 *tc6 = ctx->tc6;
@@ -612,6 +614,7 @@ static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
 	k_sem_take(&ctx->tx_rx_sem, K_FOREVER);
 	ret = oa_tc6_send_chunks(tc6, pkt);
 
+LOG_INF("TX transmission error--lan865x_port_send ", ret);
 	/* Check if rca > 0 during half-duplex TX transmission */
 	if (tc6->rca > 0) {
 		k_sem_give(&ctx->int_sem);
