@@ -25,6 +25,8 @@ LOG_MODULE_REGISTER(pico_spe_custom_debug, LOG_LEVEL_DBG);
 #include <zephyr/net/net_config.h>
 #include <zephyr/net/dhcpv4_server.h> 
 #include "netusb.h"
+#include "ethernet.h"
+#include "ethernet_bridge.h"
 // #include <zephyr/subsys/net/ip/route.h>
 // #include <zephyr/subsys/net/l2/ethernet/bridge.h>
 #define SLEEP_TIME_MS   1000
@@ -121,7 +123,7 @@ static void assign_static_ip(struct net_if *iface, const char *ip, const char *n
 {
     struct in_addr addr, netmask_addr, gateway_addr;
 
-    LOG_INF("Assigning static IP %s to %s", ip, iface);
+    // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
 
     if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
         net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
@@ -198,49 +200,57 @@ int init_usb(void)
 
 static void forward_packet(struct net_pkt *pkt, struct net_if *dest_iface)
 {
-    LOG_INF(" forwarded called\n");
-    LOG_INF(" value of pkt %p\n",pkt);
-    LOG_INF(" iface is %p \n",dest_iface);
-    
-    // if (!pkt || !dest_iface) {
-    //     LOG_ERR("Invalid packet or interface");
-    //     return;
-    // }
+    if (!pkt || !dest_iface) {
+        LOG_ERR("Invalid packet or interface");
+        return;
+    }
 
-    netusb_recv(pkt);
+    net_pkt_ref(pkt);
+
+    if (net_recv_data(dest_iface, pkt) < 0) {
+        LOG_ERR("Packet forwarding failed");
+        net_pkt_unref(pkt);
+    } else {
+        LOG_INF("Packet forwarded successfully");
+    }
 }
 
 // / Ethernet packet handler /
 static void eth_recv_cb(struct net_if *iface, struct net_pkt *pkt)
 {
     LOG_INF("Packet received on Ethernet");
-    LOG_DBG("***//////****%p***\\\\\\***\n",iface);
-    forward_packet(pkt, iface);
-    // if (iface == eth_iface) {
-    //     forward_packet(pkt, iface);
-    // }
-}
 
-// / USB packet handler /
-static void usb_recv_cb(struct net_if *iface, struct net_pkt *pkt)
-{
-    LOG_INF("Packet received on USB");
-    if (iface == usb_iface) {
-        forward_packet(pkt, iface);
+    // Forward the packet to the USB interface
+    if (net_recv_data(usb_iface, pkt) < 0) {
+        LOG_ERR("Failed to forward packet from Ethernet to USB");
+        net_pkt_unref(pkt);
+    } else {
+        LOG_INF("Packet forwarded from Ethernet to USB successfully");
     }
 }
 
-static void 
+static void usb_recv_cb(struct net_if *iface, struct net_pkt *pkt)
+{
+    LOG_INF("Packet received on USB");
 
-simulate_packet_reception(struct net_if *src_iface, struct net_if *dest_iface)
+    // Forward the packet to the LAN Ethernet interface
+    if (net_recv_data(eth_iface, pkt) < 0) {
+        LOG_ERR("Failed to forward packet from USB to Ethernet");
+        net_pkt_unref(pkt);
+    } else {
+        LOG_INF("Packet forwarded from USB to Ethernet successfully");
+    }
+}
+
+
+static void simulate_packet_reception(struct net_if *src_iface, struct net_if *dest_iface)
 {
     struct net_pkt *pkt = net_pkt_alloc_with_buffer(src_iface, 128, AF_INET, IPPROTO_UDP, K_NO_WAIT);
     if (!pkt) {
         LOG_ERR("Failed to allocate packet");
         return;
     }
-	LOG_DBG("***************%p***************\n",src_iface);
-    LOG_DBG("***************%p***************\n",dest_iface);
+	LOG_DBG("****%d*****",src_iface);
     // Add dummy data to packet
     uint8_t *data = net_pkt_data(pkt);
     for (int i = 0; i < 128; i++) {
@@ -248,7 +258,6 @@ simulate_packet_reception(struct net_if *src_iface, struct net_if *dest_iface)
 		// LOG_DBG("****%d*****",i);
     }
 
-    eth_recv_cb(src_iface, pkt);
     // Set packet length (replace net_pkt_set_len if unavailable)
     // if (net_pkt_set_data(pkt, 128) < 0) {
     //     LOG_ERR("Failed to set packet data length");
@@ -257,13 +266,11 @@ simulate_packet_reception(struct net_if *src_iface, struct net_if *dest_iface)
     // }
 
     // // Simulate reception
-    // if (src_iface == eth_iface) {
-    //     eth_recv_cb(src_iface, pkt);
-    //     LOG_INF("ETH RECV CALLED\n");
-    // } else if (src_iface == usb_iface) {
-    //     usb_recv_cb(src_iface, pkt);
-    //     LOG_INF("usb RECV CALLED\n");
-    // }
+    if (src_iface == eth_iface) {
+        eth_recv_cb(src_iface, pkt);
+    } else if (src_iface == usb_iface) {
+        usb_recv_cb(src_iface, pkt);
+    }
 
     // // Free packet
     // net_pkt_unref(pkt);
@@ -274,10 +281,22 @@ simulate_packet_reception(struct net_if *src_iface, struct net_if *dest_iface)
 
 int main(void)
 {
-	// struct net_if *iface_bridge = net_if_get_by_index(1);
-    struct net_if *eth_iface= net_if_get_by_index(1); // LAN interface
-    struct net_if *usb_iface = net_if_get_by_index(2); // USB interface
+	struct net_if *iface_bridge = net_if_get_by_index(1);
+    struct net_if *eth_iface= net_if_get_by_index(2); // LAN interface
+    struct net_if *usb_iface = net_if_get_by_index(3); // USB interface
     // toggle_led();
+    if (!iface_bridge) {
+        LOG_ERR("Bridge interface not initialized");
+        return -1;
+    }else{
+        LOG_INF("Bridge iface is up\n");
+    }
+
+    net_eth_promisc_mode(eth_iface, true);
+    net_eth_promisc_mode(usb_iface, true);
+    
+    
+
     LOG_INF("Run dhcpv4 client");
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
@@ -310,14 +329,11 @@ int main(void)
     } else {
         LOG_ERR("Failed to get USB interface");
     }
+    
 	/**/
 	// net_if_register_link_cb(eth_iface, eth_recv_cb);
-    // net_if_unregister_link_cb(eth_iface);
-
-	// // LOG_DBG("register called 1st\n");
+	// LOG_DBG("register called 1st\n");
     // net_if_register_link_cb(usb_iface, usb_recv_cb);
-    // net_if_unregister_link_cb(usb_iface);
-
 	LOG_DBG("register called 2ND\n");
 	// start_dhcpv4_server(&iface_usb);
 	/**/
@@ -325,5 +341,20 @@ int main(void)
     // simulate_packet_reception(&usb_iface, &eth_iface); // Test USB to Ethernet
 	// net_if_foreach(start_dhcpv4_client, NULL);
     start_dhcpv4_server(usb_iface);
+    int ret = eth_bridge_iface_add(iface_bridge, eth_iface);
+    // int ret1 = eth_bridge_iface_add(iface_bridge, eth_iface);
+    int ret1 = 1;
+    // if (ret < 0 || ret1 < 0) 
+    if (ret < 0 ) {
+        LOG_ERR("Error adding interface to bridge (%d, %d)\n", ret, ret1);
+        }else{
+            LOG_INF("BRIDGED\n");
+        }
+    if (net_if_up(iface_bridge) < 0) {
+        LOG_ERR("Failed to bring bridge interface up");
+    } else {
+        LOG_INF("Bridge interface is up");
+    }
+
 	return 0;
 }

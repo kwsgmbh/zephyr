@@ -564,14 +564,14 @@ static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
 	}
 	
 	k_sem_give(&ctx->tx_rx_sem);
-	ret == 1;
+	
 	if (ret < 0) {
 		LOG_ERR("TX transmission error, %d", ret);
 		eth_stats_update_errors_tx(net_pkt_iface(pkt));
 		return ret;
 	}
 
-	return 0;
+	return true;
 }
 
 int eth_lan865x_send_pkt(struct net_pkt *pkt)
@@ -591,8 +591,8 @@ int eth_lan865x_send_pkt(struct net_pkt *pkt)
     }
 	
     // return eth_api->send(iface, pkt);
-	// const struct device *dev = net_if_get_device(iface);
-	// return lan865x_port_send(dev, pkt);
+	const struct device *dev = net_if_get_device(iface);
+	return lan865x_port_send(dev, pkt);
 	// return 0;
 }
 

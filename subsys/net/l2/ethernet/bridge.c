@@ -93,21 +93,29 @@ int eth_bridge_iface_add(struct net_if *br, struct net_if *iface)
 	bool found = false;
 	int count = 0;
 	int ret;
+	LOG_INF("1\n");
+	LOG_INF("Checking interface %d capabilities: %s %s", 
+            net_if_get_by_iface(iface), 
+            net_if_l2(iface) == &NET_L2_GET_NAME(ETHERNET) ? "Ethernet" : "Unknown", 
+            net_eth_get_hw_capabilities(iface) & ETHERNET_PROMISC_MODE ? "Promisc OK" : "Promisc NOT OK");
 
 	if (net_if_l2(iface) != &NET_L2_GET_NAME(ETHERNET) ||
 	    !(net_eth_get_hw_capabilities(iface) & ETHERNET_PROMISC_MODE)) {
+			LOG_INF("2\n");
 		return -EINVAL;
 	}
 
 	if (net_if_l2(br) != &NET_L2_GET_NAME(VIRTUAL) ||
 	    !(net_virtual_get_iface_capabilities(br) & VIRTUAL_INTERFACE_BRIDGE)) {
+			LOG_INF("3\n");
 		return -EINVAL;
 	}
 
 	lock_bridge(ctx);
-
+	LOG_INF("4\n");
 	if (eth_ctx->bridge == br) {
 		/* This Ethernet interface was already added to the bridge */
+		LOG_INF("5\n");
 		found = true;
 	}
 
@@ -127,7 +135,7 @@ int eth_bridge_iface_add(struct net_if *br, struct net_if *iface)
 			}
 		}
 	}
-
+	LOG_INF("6\n");
 	unlock_bridge(ctx);
 
 	if (!found) {
@@ -160,7 +168,7 @@ int eth_bridge_iface_add(struct net_if *br, struct net_if *iface)
 	}
 
 	ctx->count = count;
-
+	LOG_INF("7\n");
 	return 0;
 }
 
@@ -345,7 +353,7 @@ static enum net_verdict bridge_iface_process(struct net_if *iface,
 	/* Drop all link-local packets for now. */
 	if (is_link_local_addr((struct net_eth_addr *)net_pkt_lladdr_dst(pkt))) {
 		NET_DBG("DROP: lladdr");
-		return NET_DROP;
+		goto out;
 	}
 
 	lock_bridge(ctx);
@@ -372,6 +380,11 @@ static enum net_verdict bridge_iface_process(struct net_if *iface,
 			 */
 			if (count > 2) {
 				send_pkt = net_pkt_clone(pkt, K_NO_WAIT);
+				if (send_pkt == NULL) {
+					NET_DBG("DROP: clone failed");
+					break;
+				}
+
 				net_pkt_ref(send_pkt);
 			} else {
 				send_pkt = net_pkt_ref(pkt);
@@ -392,11 +405,11 @@ static enum net_verdict bridge_iface_process(struct net_if *iface,
 
 	unlock_bridge(ctx);
 
+out:
 	/* The packet was cloned by the caller so remove it here. */
 	net_pkt_unref(pkt);
 
 	return NET_OK;
-
 }
 
 int bridge_iface_send(struct net_if *iface, struct net_pkt *pkt)
