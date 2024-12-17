@@ -140,7 +140,7 @@ static int lan865x_gpio_reset(const struct device *dev)
 	return lan865x_wait_for_reset(dev);
 }
 
-static int lan865x_check_spi(const struct device *dev)
+ int lan865x_check_spi(const struct device *dev)
 {
 	struct lan865x_data *ctx = dev->data;
 	uint32_t val;
@@ -493,6 +493,8 @@ LOG_INF("Send devicelan865x_int_thread  %s ", dev->name);
 	while (true) {
 		k_sem_take(&ctx->int_sem, K_FOREVER);
 		if (!ctx->reset) {
+
+			LOG_INF("Send devicelan865x_int_thread while loop %s ", dev->name); 
 			oa_tc6_reg_read(tc6, OA_STATUS0, &sts);
 			if (sts & OA_STATUS0_RESETC) {
 				oa_tc6_reg_write(tc6, OA_STATUS0, sts);
@@ -530,7 +532,7 @@ LOG_INF("Send devicelan865x_int_thread  %s ", dev->name);
 	}
 }
 
-static int lan865x_init(const struct device *dev)
+ int lan865x_init(const struct device *dev)
 {
 	const struct lan865x_config *cfg = dev->config;
 	struct lan865x_data *ctx = dev->data;

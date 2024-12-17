@@ -24,6 +24,11 @@ LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
 #include <zephyr/net/net_pkt.h>
 #include "netusb.h"
 
+#include <zephyr/net/net_if.h>
+#include <zephyr/net/ethernet.h>
+#include <zephyr/net/phy.h>
+
+#include "eth_lan865x_priv.h"
 
 
 
@@ -217,7 +222,7 @@ else{
 	ret = netusb_send(eth_iface->if_dev->dev, pkt);
 
 
- lan865x_port_send(eth_iface->if_dev->dev, pkt);
+ //lan865x_port_send(eth_iface->if_dev->dev, pkt);
    
     if (ret < 0) {
         LOG_ERR("Failed to send data, error %d", ret);
@@ -233,6 +238,8 @@ else{
 
 int   main(void)
 {
+
+    eth_iface = net_if_get_default();
 	LOG_INF("Run dhcpv4 client");
 
 
@@ -244,9 +251,22 @@ int   main(void)
 
 
 
+
+
+	
+
+
+
+
 while(1){
 
-send_sample_data();
+//send_sample_data();
+
+//int ret =  lan865x_check_spi(eth_iface->if_dev->dev);
+
+int ret = lan865x_init(eth_iface->if_dev->dev);
+
+printf("return value os spi %d \n",ret);
 printf("sending \n");
 k_msleep(5000);
 
@@ -254,12 +274,7 @@ k_msleep(5000);
 }
 
 
-
-
-	
-
 #if 0
-
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
 				     NET_EVENT_IPV4_ADDR_ADD);
 	net_mgmt_add_event_callback(&mgmt_cb);
