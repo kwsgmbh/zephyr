@@ -628,7 +628,7 @@ LOG_INF("Send devicelan865x_int_thread  %s ", dev->name);
 	k_sem_take(&ctx->tx_rx_sem, K_FOREVER);
 	ret = oa_tc6_send_chunks(tc6, pkt);
 
-LOG_INF("TX transmission error--lan865x_port_send %d ", ret);
+LOG_INF("TX transmission lan865x_port_send %d ", ret);
 	/* Check if rca > 0 during half-duplex TX transmission */
 	if (tc6->rca > 0) {
 		k_sem_give(&ctx->int_sem);

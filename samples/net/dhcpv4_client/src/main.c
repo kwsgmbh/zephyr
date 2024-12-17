@@ -71,9 +71,8 @@ int ret ;
 		LOG_INF(" allocate network packet");
 	}
 
-    // Add simple data to the network packet (e.g., "Hello, World!")
-    const char *data = "Hello, World!";
-    ret = net_pkt_write(pkt_hello, data, strlen(data));
+
+    ret = net_pkt_write(pkt_hello, pkt, 128);
     if (ret < 0) {
         LOG_ERR("Failed to write data to packet");
         net_pkt_unref(pkt_hello);
