@@ -219,10 +219,10 @@ else{
 	    // Call the netusb_send function to send the packet
    // ret = netusb_send(net_usb->if_dev->dev, pkt);
 
-	ret = netusb_send(eth_iface->if_dev->dev, pkt);
+	 netusb_send(eth_iface->if_dev->dev, pkt);
 
 
- //lan865x_port_send(eth_iface->if_dev->dev, pkt);
+ret = lan865x_port_send(eth_iface->if_dev->dev, pkt);
    
     if (ret < 0) {
         LOG_ERR("Failed to send data, error %d", ret);
@@ -255,7 +255,7 @@ int   main(void)
 
 	
 
-
+send_sample_data();
 
 
 while(1){
@@ -264,9 +264,9 @@ while(1){
 
 //int ret =  lan865x_check_spi(eth_iface->if_dev->dev);
 
-int ret = lan865x_init(eth_iface->if_dev->dev);
+// int ret = lan865x_init(eth_iface->if_dev->dev);
 
-printf("return value os spi %d \n",ret);
+// printf("return value os spi %d \n",ret);
 printf("sending \n");
 k_msleep(5000);
 

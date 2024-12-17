@@ -367,6 +367,8 @@ static int lan865x_default_config(const struct device *dev, uint8_t silicon_rev)
 	lan865x_set_specific_multicast_addr(dev);
 
 	ret = lan865x_init_chip(dev, silicon_rev);
+ LOG_INF("Interrupt lan865x_init_chip on pin %d", ret);
+
 	if (ret < 0) {
 		return ret;
 	}
@@ -392,6 +394,10 @@ static void lan865x_int_callback(const struct device *dev,
 
 	struct lan865x_data *ctx =
 		CONTAINER_OF(cb, struct lan865x_data, gpio_int_callback);
+
+		    LOG_INF("Interrupt triggered on pin %u", pins);
+
+			LOG_INF("Interrupt &ctx->int_sem.count on pin %d", &ctx->int_sem.count);
 
 	k_sem_give(&ctx->int_sem);
 }
@@ -496,13 +502,17 @@ LOG_INF("Send devicelan865x_int_thread  %s ", dev->name);
 
 			LOG_INF("Send devicelan865x_int_thread while loop %s ", dev->name); 
 			oa_tc6_reg_read(tc6, OA_STATUS0, &sts);
+			
 			if (sts & OA_STATUS0_RESETC) {
 				oa_tc6_reg_write(tc6, OA_STATUS0, sts);
 				lan865x_default_config(dev, ctx->silicon_rev);
 				oa_tc6_reg_read(tc6, OA_CONFIG0, &val);
 				val |= OA_CONFIG0_SYNC | OA_CONFIG0_RFA_ZARFE;
 				oa_tc6_reg_write(tc6, OA_CONFIG0, val);
+				LOG_INF("oa_tc6_reg_write  %s ", tc6->concat_buf); 
+				lan865x_read_chunks(dev);
 				lan865x_mac_rxtx_control(dev, LAN865x_MAC_TXRX_ON);
+				lan865x_read_chunks(dev);
 
 				ctx->reset = true;
 				/*
@@ -523,9 +533,11 @@ LOG_INF("Send devicelan865x_int_thread  %s ", dev->name);
 		 */
 		do {
 			lan865x_read_chunks(dev);
+			LOG_INF("do while loop ");
 		} while (tc6->rca > 0);
 
 		ret = oa_tc6_check_status(tc6);
+		LOG_INF("do while loop ret  %d ",ret);
 		if (ret == -EIO) {
 			lan865x_gpio_reset(dev);
 		}
@@ -616,7 +628,7 @@ LOG_INF("Send devicelan865x_int_thread  %s ", dev->name);
 	k_sem_take(&ctx->tx_rx_sem, K_FOREVER);
 	ret = oa_tc6_send_chunks(tc6, pkt);
 
-LOG_INF("TX transmission error--lan865x_port_send ", ret);
+LOG_INF("TX transmission error--lan865x_port_send %d ", ret);
 	/* Check if rca > 0 during half-duplex TX transmission */
 	if (tc6->rca > 0) {
 		k_sem_give(&ctx->int_sem);

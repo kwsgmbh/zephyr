@@ -45,6 +45,10 @@ extern "C" {
  */
 
 /** Enables pin as input. */
+//#define GPIO_INPUT              (1U << 16)
+
+
+/** Enables pin as input. modified  */
 #define GPIO_INPUT              (1U << 16)
 
 /** Enables pin as output, no change to the output state. */
