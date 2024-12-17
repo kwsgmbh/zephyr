@@ -58,7 +58,13 @@ static int my_send_pkt(struct net_pkt *pkt)
 {
     LOG_INF("Sendingxx packet, length: %zu", net_pkt_get_len(pkt));
     
-
+int ret = lan865x_port_send(eth_iface->if_dev->dev, pkt);
+   
+    if (ret < 0) {
+        LOG_ERR("Failed to send data, error %d", ret);
+    } else {
+        LOG_INF(" lan865x_port_send Data sent successfully");
+    }
 
      
     return 0;
@@ -166,14 +172,12 @@ int init_usb(void)
 }
 
 #if APP_ADD
-static void send_sample_data(void) {
-		struct net_pkt *pkt;
-    int ret;
+
+static void init_ip(void) {
 
 eth_iface = net_if_get_default();
 net_usb = net_if_get_by_index(2);
-LOG_INF("Start on name xxxx %s  ", net_if_get_device(eth_iface)->name);
-LOG_INF("Startxx %s", net_usb->if_dev->dev->name);
+
 
 if (eth_iface) {
         assign_static_ip(eth_iface, "192.168.1.2", "255.255.255.0", "192.168.1.254");
@@ -186,6 +190,23 @@ if (eth_iface) {
     } else {
         LOG_ERR("Failed to get USB interface");
     }
+
+
+}
+
+
+
+
+static void send_sample_data(void) {
+		struct net_pkt *pkt;
+    int ret;
+
+eth_iface = net_if_get_default();
+net_usb = net_if_get_by_index(2);
+LOG_INF("Start on name xxxx %s  ", net_if_get_device(eth_iface)->name);
+LOG_INF("Startxx %s", net_usb->if_dev->dev->name);
+
+
 
    netusb_enable(&my_netusb_function);
 
@@ -222,13 +243,7 @@ else{
 	 netusb_send(eth_iface->if_dev->dev, pkt);
 
 
-ret = lan865x_port_send(eth_iface->if_dev->dev, pkt);
-   
-    if (ret < 0) {
-        LOG_ERR("Failed to send data, error %d", ret);
-    } else {
-        LOG_INF("Data sent successfully");
-    }
+
  
 
 }
@@ -253,7 +268,7 @@ int   main(void)
 
 
 
-	
+init_ip();
 
 send_sample_data();
 
