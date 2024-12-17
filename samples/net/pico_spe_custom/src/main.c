@@ -103,7 +103,7 @@ static void start_dhcpv4_server(struct net_if *iface)
     int ret;
     struct in_addr base_addr;
     LOG_INF("entered into start server function\n");
-    if (net_addr_pton(AF_INET, "192.168.2.100", &base_addr) < 0) {
+    if (net_addr_pton(AF_INET, "192.168.1.4", &base_addr) < 0) {
         LOG_ERR("Invalid base address for DHCP server");
         return;
     }
@@ -121,7 +121,7 @@ static void assign_static_ip(struct net_if *iface, const char *ip, const char *n
 {
     struct in_addr addr, netmask_addr, gateway_addr;
 
-    // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
+    LOG_INF("Assigning static IP %s to %s", ip, iface);
 
     if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
         net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
@@ -186,7 +186,7 @@ static void option_handler(struct net_dhcpv4_option_callback *cb,
 int init_usb(void)
 {
     int ret;
-
+    k_msleep(5000);
     ret = usb_enable(NULL);
     if (ret != 0) {
         LOG_ERR("USB enable error %d", ret);
@@ -198,28 +198,27 @@ int init_usb(void)
 
 static void forward_packet(struct net_pkt *pkt, struct net_if *dest_iface)
 {
-    if (!pkt || !dest_iface) {
-        LOG_ERR("Invalid packet or interface");
-        return;
-    }
+    LOG_INF(" forwarded called\n");
+    LOG_INF(" value of pkt %p\n",pkt);
+    LOG_INF(" iface is %p \n",dest_iface);
+    
+    // if (!pkt || !dest_iface) {
+    //     LOG_ERR("Invalid packet or interface");
+    //     return;
+    // }
 
-    net_pkt_ref(pkt);
-
-    if (net_recv_data(dest_iface, pkt) < 0) {
-        LOG_ERR("Packet forwarding failed");
-        net_pkt_unref(pkt);
-    } else {
-        LOG_INF("Packet forwarded successfully");
-    }
+    netusb_recv(pkt);
 }
 
 // / Ethernet packet handler /
 static void eth_recv_cb(struct net_if *iface, struct net_pkt *pkt)
 {
     LOG_INF("Packet received on Ethernet");
-    if (iface == eth_iface) {
-        forward_packet(&pkt, usb_iface);
-    }
+    LOG_DBG("***//////****%p***\\\\\\***\n",iface);
+    forward_packet(pkt, iface);
+    // if (iface == eth_iface) {
+    //     forward_packet(pkt, iface);
+    // }
 }
 
 // / USB packet handler /
@@ -227,18 +226,21 @@ static void usb_recv_cb(struct net_if *iface, struct net_pkt *pkt)
 {
     LOG_INF("Packet received on USB");
     if (iface == usb_iface) {
-        forward_packet(&pkt, eth_iface);
+        forward_packet(pkt, iface);
     }
 }
 
-static void simulate_packet_reception(struct net_if *src_iface, struct net_if *dest_iface)
+static void 
+
+simulate_packet_reception(struct net_if *src_iface, struct net_if *dest_iface)
 {
     struct net_pkt *pkt = net_pkt_alloc_with_buffer(src_iface, 128, AF_INET, IPPROTO_UDP, K_NO_WAIT);
     if (!pkt) {
         LOG_ERR("Failed to allocate packet");
         return;
     }
-	LOG_DBG("****%d*****",src_iface);
+	LOG_DBG("***************%p***************\n",src_iface);
+    LOG_DBG("***************%p***************\n",dest_iface);
     // Add dummy data to packet
     uint8_t *data = net_pkt_data(pkt);
     for (int i = 0; i < 128; i++) {
@@ -246,6 +248,7 @@ static void simulate_packet_reception(struct net_if *src_iface, struct net_if *d
 		// LOG_DBG("****%d*****",i);
     }
 
+    eth_recv_cb(src_iface, pkt);
     // Set packet length (replace net_pkt_set_len if unavailable)
     // if (net_pkt_set_data(pkt, 128) < 0) {
     //     LOG_ERR("Failed to set packet data length");
@@ -256,8 +259,10 @@ static void simulate_packet_reception(struct net_if *src_iface, struct net_if *d
     // // Simulate reception
     // if (src_iface == eth_iface) {
     //     eth_recv_cb(src_iface, pkt);
+    //     LOG_INF("ETH RECV CALLED\n");
     // } else if (src_iface == usb_iface) {
     //     usb_recv_cb(src_iface, pkt);
+    //     LOG_INF("usb RECV CALLED\n");
     // }
 
     // // Free packet
@@ -270,8 +275,8 @@ static void simulate_packet_reception(struct net_if *src_iface, struct net_if *d
 int main(void)
 {
 	// struct net_if *iface_bridge = net_if_get_by_index(1);
-    struct net_if *iface_lan = net_if_get_by_index(1); // LAN interface
-    struct net_if *iface_usb = net_if_get_by_index(2); // USB interface
+    struct net_if *eth_iface= net_if_get_by_index(1); // LAN interface
+    struct net_if *usb_iface = net_if_get_by_index(2); // USB interface
     // toggle_led();
     LOG_INF("Run dhcpv4 client");
 
@@ -294,26 +299,31 @@ int main(void)
     
   
     netusb_enable(&my_netusb_function);
-    if (iface_lan) {
-        assign_static_ip(iface_lan, "192.168.1.2", "255.255.255.0", "192.168.1.254");
+    if (eth_iface) {
+        assign_static_ip(eth_iface, "192.168.1.2", "255.255.255.0", "192.168.1.254");
     } else {
         LOG_ERR("Failed to get LAN interface");
     }
 
-    if (iface_usb) {
-        assign_static_ip(iface_usb, "192.168.1.3", "255.255.255.0", "192.168.1.254");
+    if (usb_iface) {
+        assign_static_ip(usb_iface, "192.168.1.3", "255.255.255.0", "192.168.1.254");
     } else {
         LOG_ERR("Failed to get USB interface");
     }
-	/*
-	net_if_register_link_cb(&iface_lan, eth_recv_cb);
-	LOG_DBG("register called 1st\n");
-    net_if_register_link_cb(&iface_usb, usb_recv_cb);
+	/**/
+	// net_if_register_link_cb(eth_iface, eth_recv_cb);
+    // net_if_unregister_link_cb(eth_iface);
+
+	// // LOG_DBG("register called 1st\n");
+    // net_if_register_link_cb(usb_iface, usb_recv_cb);
+    // net_if_unregister_link_cb(usb_iface);
+
 	LOG_DBG("register called 2ND\n");
 	// start_dhcpv4_server(&iface_usb);
-	*/
-	// simulate_packet_reception(eth_iface, usb_iface); // Test Ethernet to USB
+	/**/
+	simulate_packet_reception(eth_iface, usb_iface); // Test Ethernet to USB
     // simulate_packet_reception(&usb_iface, &eth_iface); // Test USB to Ethernet
 	// net_if_foreach(start_dhcpv4_client, NULL);
+    start_dhcpv4_server(usb_iface);
 	return 0;
 }

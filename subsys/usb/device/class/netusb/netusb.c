@@ -13,11 +13,13 @@ LOG_MODULE_REGISTER(usb_net, CONFIG_USB_DEVICE_NETWORK_LOG_LEVEL);
 
 #include <zephyr/net/ethernet.h>
 #include <net_private.h>
+// #include <zephyr/drivers/ethernet/eth_lan865x_priv.h>
 
 #include <usb_device.h>
 #include <usb_descriptor.h>
 
 #include "netusb.h"
+#include "eth_lan865x_priv.h"
 
 static struct __netusb {
 	struct net_if *iface;
@@ -30,10 +32,10 @@ static int netusb_send(const struct device *dev, struct net_pkt *pkt)
 
 	ARG_UNUSED(dev);
 
-	LOG_DBG("Send pkt, len %zu", net_pkt_get_len(pkt));
+	LOG_INF("Send pkt............, len %zu", net_pkt_get_len(pkt));
 
 	if (!netusb_enabled()) {
-		LOG_ERR("interface disabled");
+		LOG_ERR("1.interface disabled");
 		return -ENODEV;
 	}
 
@@ -52,8 +54,16 @@ struct net_if *netusb_net_iface(void)
 
 void netusb_recv(struct net_pkt *pkt)
 {
-	LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
+	LOG_INF("Recv pkt, len %zu", net_pkt_get_len(pkt));
 
+	// if (eth_lan865x_send_pkt(pkt) < 0) {
+    //     LOG_ERR("Packet %x dropped by the Ethernet chip", pkt);
+    //     // net_pkt_unref(pkt);
+    // }
+	net_if_set_mtu(net_if_get_by_index(2), 1500);
+
+	eth_lan865x_send_pkt(pkt);
+	
 	if (net_recv_data(netusb.iface, pkt) < 0) {
 		LOG_ERR("Packet %p dropped by NET stack", pkt);
 		net_pkt_unref(pkt);
@@ -65,7 +75,7 @@ static int netusb_connect_media(void)
 	LOG_DBG("");
 
 	if (!netusb_enabled()) {
-		LOG_ERR("interface disabled");
+		LOG_ERR("2.interface disabled");
 		return -ENODEV;
 	}
 
@@ -81,7 +91,7 @@ static int netusb_disconnect_media(void)
 	LOG_DBG("");
 
 	if (!netusb_enabled()) {
-		LOG_ERR("interface disabled");
+		LOG_ERR("3.interface disabled");
 		return -ENODEV;
 	}
 

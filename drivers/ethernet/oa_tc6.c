@@ -191,10 +191,15 @@ int oa_tc6_send_chunks(struct oa_tc6 *tc6, struct net_pkt *pkt)
 	if (len % tc6->cps) {
 		chunks++;
 	}
+	// LOG_INF("Chunk size (cps): %u, TXC: %u", tc6->cps, tc6->txc);
 
 	/* Check if LAN865x has any free internal buffer space */
-	if (chunks > tc6->txc) {
-		return -EIO;
+	// if (chunks > tc6->txc) {
+	// 	return -EIO;
+	// }
+	if (tc6->txc < chunks) {
+    	// LOG_INF("TX buffer space exhausted: chunks=%d, txc=%d", chunks, tc6->txc);
+    	return -ENOBUFS;
 	}
 
 	/* Transform struct net_pkt content into chunks */
@@ -215,13 +220,25 @@ int oa_tc6_send_chunks(struct oa_tc6 *tc6, struct net_pkt *pkt)
 
 		hdr |= FIELD_PREP(OA_DATA_HDR_P, oa_tc6_get_parity(hdr));
 
+		// LOG_INF("Before net_pkt_read: pkt=0x%p, len=%zu, available_len=%zu",pkt, (len > tc6->cps ? tc6->cps : len), net_pkt_get_len(pkt));
+
+		if (len > net_pkt_get_len(pkt)) {
+			LOG_ERR("Attempting to read beyond available data");
+			return -ENOBUFS;
+		}
+
+
 		ret = net_pkt_read(pkt, oa_tx, len > tc6->cps ? tc6->cps : len);
 		if (ret < 0) {
+			// LOG_INF("VALUE OF PACKET inside packet read %d",ret);
+			// LOG_INF("Packet info: pkt=0x%p, data=0x%p, len=%zu, remaining=%zu",pkt, net_pkt_data(pkt), net_pkt_get_len(pkt), net_pkt_remaining_data(pkt));
+
 			return ret;
 		}
 
 		ret = oa_tc6_chunk_spi_transfer(tc6, NULL, oa_tx, hdr, &ftr);
 		if (ret < 0) {
+			// LOG_INF("VALUE OF PACKET inside spi transfer %d",ret);
 			return ret;
 		}
 

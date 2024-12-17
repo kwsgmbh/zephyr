@@ -1786,6 +1786,7 @@ static int net_pkt_cursor_operate(struct net_pkt *pkt,
 		NET_DBG("Still some length to go %zu", length);
 		return -ENOBUFS;
 	}
+	// LOG_INF("Cursor state: buf=%p, pos=%p, buf_len=%zu, remaining_len=%zu\n",c_op->buf, c_op->pos, c_op->buf ? c_op->buf->len : 0, length);
 
 	return 0;
 }
@@ -1807,7 +1808,8 @@ int net_pkt_memset(struct net_pkt *pkt, int byte, size_t amount)
 int net_pkt_read(struct net_pkt *pkt, void *data, size_t length)
 {
 	NET_DBG("pkt %p data %p length %zu", pkt, data, length);
-
+	LOG_INF("pkt %p data %p length %zu", pkt, data, length);
+	
 	return net_pkt_cursor_operate(pkt, data, length, true, false);
 }
 

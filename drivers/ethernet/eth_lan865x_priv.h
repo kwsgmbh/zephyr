@@ -81,4 +81,16 @@ struct lan865x_data {
 	k_tid_t tid_int;
 };
 
+static inline void lan865x_update_dev_cfg_array(oa_mem_map_t *cfg, uint8_t size,
+						uint32_t addr, uint16_t val)
+{
+	for (uint8_t i = 0; i < size; i++) {
+		if (cfg[i].address == addr) {
+			cfg[i].value = val;
+		}
+	}
+}
+
+int eth_lan865x_send_pkt(struct net_pkt *pkt);
+
 #endif /* ETH_LAN865X_PRIV_H__ */
