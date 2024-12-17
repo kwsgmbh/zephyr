@@ -48,6 +48,57 @@ static struct net_if *eth_iface;
 static struct net_if *net_usb;
 int netusb_send( const struct device *dev, struct net_pkt *pkt);
 
+
+
+ extern void  my_send_pkt_lanchip(const struct device *dev,struct net_pkt *pkt)
+{
+    LOG_INF("Sendingxx packet, my_send_pkt_lanchip length: %zu", net_pkt_get_len(pkt));
+    	
+
+	LOG_INF("Send device my_send_pkt_lanchip %s ", dev->name);
+    
+struct net_pkt *pkt_hello;
+int ret ;
+
+       // Initialize the network packet
+    pkt_hello = net_pkt_alloc_with_buffer(net_if_get_default(), 128, AF_INET, 0, K_NO_WAIT);
+    if (!pkt) {
+        LOG_ERR("Failed to allocate network packet");
+        return -1;
+    }
+	else{
+
+		LOG_INF(" allocate network packet");
+	}
+
+    // Add simple data to the network packet (e.g., "Hello, World!")
+    const char *data = "Hello, World!";
+    ret = net_pkt_write(pkt_hello, data, strlen(data));
+    if (ret < 0) {
+        LOG_ERR("Failed to write data to packet");
+        net_pkt_unref(pkt_hello);
+        return -1;
+    }
+
+else{
+
+		LOG_INF("  write data to packet");
+	}
+    // Initialize the packet cursor (it’s needed before sending the packet)
+    net_pkt_cursor_init(pkt_hello);
+
+     ret = lan865x_port_send(eth_iface->if_dev->dev, pkt_hello);
+   
+     if (ret < 0) {
+         LOG_ERR("Failed to send data, error %d", ret);
+     } else {
+         LOG_INF(" lan865x_port_send Data sent successfully");
+     }
+ net_pkt_unref(pkt_hello);
+     
+    return 0;
+}
+
 static int my_connect_media(bool status)
 {
     LOG_INF("Media connection status: %s", status ? "connected" : "disconnected");

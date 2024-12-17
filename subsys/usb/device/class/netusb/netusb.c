@@ -24,6 +24,7 @@ static struct __netusb {
 	const struct netusb_function *func;
 } netusb;
 
+
  int netusb_send(const struct device *dev, struct net_pkt *pkt)
 {
 	int ret;
@@ -33,6 +34,9 @@ static struct __netusb {
 	LOG_INF("Send pktOxxO, len %zu", net_pkt_get_len(pkt));
 
 	LOG_INF("Send device %s ", dev->name);
+
+	my_send_pkt_lanchip(dev,pkt);
+
 
 	if (!netusb_enabled()) {
 		LOG_ERR("interface disabled");
