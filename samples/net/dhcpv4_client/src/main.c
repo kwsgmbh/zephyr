@@ -36,9 +36,9 @@ LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
 
 static uint8_t ntp_server[4];
 
-static struct net_mgmt_event_callback mgmt_cb;
+//static struct net_mgmt_event_callback mgmt_cb;
 
-static struct net_dhcpv4_option_callback dhcp_cb;
+//static struct net_dhcpv4_option_callback dhcp_cb;
 
 #define APP_ADD 1
 
@@ -162,7 +162,7 @@ static void assign_static_ip(struct net_if *iface, const char *ip, const char *n
 #endif
 
 
-
+#if 0
 static void handler(struct net_mgmt_event_callback *cb,
 		    uint32_t mgmt_event,
 		    struct net_if *iface)
@@ -208,7 +208,7 @@ static void option_handler(struct net_dhcpv4_option_callback *cb,
 	LOG_INF("DHCP Option %d: %s", cb->option,
 		net_addr_ntop(AF_INET, cb->data, buf, sizeof(buf)));
 }
-
+#endif
 
 int init_usb(void)
 {
@@ -332,7 +332,7 @@ while(1){
 // int ret = lan865x_init(eth_iface->if_dev->dev);
 
 // printf("return value os spi %d \n",ret);
-printf("sending \n");
+//printf("sending \n");
 k_msleep(5000);
 
 
