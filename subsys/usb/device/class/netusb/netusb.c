@@ -35,7 +35,7 @@ static struct __netusb {
 
 	LOG_INF("Send device %s ", dev->name);
 
-	//my_send_pkt_lanchip(dev,pkt);
+	my_send_pkt_lanchip(dev,pkt);
 
 
 	if (!netusb_enabled()) {
