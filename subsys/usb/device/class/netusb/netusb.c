@@ -17,7 +17,10 @@ LOG_MODULE_REGISTER(usb_net, CONFIG_USB_DEVICE_NETWORK_LOG_LEVEL);
 #include <usb_device.h>
 #include <usb_descriptor.h>
 
+
+
 #include "netusb.h"
+
 
 static struct __netusb {
 	struct net_if *iface;
