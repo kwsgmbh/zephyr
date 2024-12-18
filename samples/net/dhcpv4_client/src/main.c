@@ -332,7 +332,7 @@ while(1){
 // int ret = lan865x_init(eth_iface->if_dev->dev);
 
 // printf("return value os spi %d \n",ret);
-printf("sending \n");
+//printf("sending \n");
 k_msleep(5000);
 
 
