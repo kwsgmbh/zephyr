@@ -320,7 +320,7 @@ int   main(void)
 
 init_ip();
 
-send_sample_data();
+//send_sample_data();
 
 
 while(1){
