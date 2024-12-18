@@ -6,7 +6,6 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(pico_spe_custom_debug, LOG_LEVEL_DBG);
 #include <zephyr/kernel.h>
@@ -17,12 +16,12 @@ LOG_MODULE_REGISTER(pico_spe_custom_debug, LOG_LEVEL_DBG);
 #include <stdio.h>
 
 #include <zephyr/net/net_if.h>
-#include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/usb/usb_device.h>
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_config.h>
+#include <zephyr/net/net_core.h>
 #include <zephyr/net/dhcpv4_server.h> 
 #include "netusb.h"
 #include "ethernet.h"
@@ -198,22 +197,22 @@ int init_usb(void)
     return 0;
 }
 
-static void forward_packet(struct net_pkt *pkt, struct net_if *dest_iface)
-{
-    if (!pkt || !dest_iface) {
-        LOG_ERR("Invalid packet or interface");
-        return;
-    }
+// static void forward_packet(struct net_pkt *pkt, struct net_if *dest_iface)
+// {
+//     if (!pkt || !dest_iface) {
+//         LOG_ERR("Invalid packet or interface");
+//         return;
+//     }
 
-    net_pkt_ref(pkt);
+//     net_pkt_ref(pkt);
 
-    if (net_recv_data(dest_iface, pkt) < 0) {
-        LOG_ERR("Packet forwarding failed");
-        net_pkt_unref(pkt);
-    } else {
-        LOG_INF("Packet forwarded successfully");
-    }
-}
+//     if (net_recv_data(dest_iface, pkt) < 0) {
+//         LOG_ERR("Packet forwarding failed");
+//         net_pkt_unref(pkt);
+//     } else {
+//         LOG_INF("Packet forwarded successfully");
+//     }
+// }
 
 // / Ethernet packet handler /
 static void eth_recv_cb(struct net_if *iface, struct net_pkt *pkt)
@@ -281,10 +280,12 @@ static void simulate_packet_reception(struct net_if *src_iface, struct net_if *d
 
 int main(void)
 {
-	struct net_if *iface_bridge = net_if_get_by_index(1);
+	struct net_if *iface_bridge = net_if_get_by_index(1); // Bridge interface
     struct net_if *eth_iface= net_if_get_by_index(2); // LAN interface
     struct net_if *usb_iface = net_if_get_by_index(3); // USB interface
+
     // toggle_led();
+
     if (!iface_bridge) {
         LOG_ERR("Bridge interface not initialized");
         return -1;
@@ -293,11 +294,11 @@ int main(void)
     }
 
     net_eth_promisc_mode(eth_iface, true);
+
     net_eth_promisc_mode(usb_iface, true);
     
-    
 
-    LOG_INF("Run dhcpv4 client");
+    // LOG_INF("Run dhcpv4 client");
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
 				     NET_EVENT_IPV4_ADDR_ADD);
@@ -318,6 +319,7 @@ int main(void)
     
   
     netusb_enable(&my_netusb_function);
+
     if (eth_iface) {
         assign_static_ip(eth_iface, "192.168.1.2", "255.255.255.0", "192.168.1.254");
     } else {
@@ -334,22 +336,24 @@ int main(void)
 	// net_if_register_link_cb(eth_iface, eth_recv_cb);
 	// LOG_DBG("register called 1st\n");
     // net_if_register_link_cb(usb_iface, usb_recv_cb);
-	LOG_DBG("register called 2ND\n");
+	// LOG_DBG("register called 2ND\n");
 	// start_dhcpv4_server(&iface_usb);
 	/**/
 	simulate_packet_reception(eth_iface, usb_iface); // Test Ethernet to USB
     // simulate_packet_reception(&usb_iface, &eth_iface); // Test USB to Ethernet
 	// net_if_foreach(start_dhcpv4_client, NULL);
     start_dhcpv4_server(usb_iface);
+
     int ret = eth_bridge_iface_add(iface_bridge, eth_iface);
     // int ret1 = eth_bridge_iface_add(iface_bridge, eth_iface);
     int ret1 = 1;
     // if (ret < 0 || ret1 < 0) 
     if (ret < 0 ) {
         LOG_ERR("Error adding interface to bridge (%d, %d)\n", ret, ret1);
-        }else{
-            LOG_INF("BRIDGED\n");
-        }
+    }else{
+        LOG_INF("BRIDGED\n");
+    }
+
     if (net_if_up(iface_bridge) < 0) {
         LOG_ERR("Failed to bring bridge interface up");
     } else {

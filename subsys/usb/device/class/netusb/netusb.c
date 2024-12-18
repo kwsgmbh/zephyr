@@ -56,14 +56,11 @@ void netusb_recv(struct net_pkt *pkt)
 {
 	LOG_INF("Recv pkt, len %zu", net_pkt_get_len(pkt));
 
-	// if (eth_lan865x_send_pkt(pkt) < 0) {
-    //     LOG_ERR("Packet %x dropped by the Ethernet chip", pkt);
-    //     // net_pkt_unref(pkt);
-    // }
-	net_if_set_mtu(net_if_get_by_index(2), 1500);
+	if (eth_lan865x_send_pkt(pkt) < 0) {
+        LOG_ERR("Packet %x dropped by the Ethernet chip", pkt);
+        // net_pkt_unref(pkt);
+    }
 
-	eth_lan865x_send_pkt(pkt);
-	
 	if (net_recv_data(netusb.iface, pkt) < 0) {
 		LOG_ERR("Packet %p dropped by NET stack", pkt);
 		net_pkt_unref(pkt);

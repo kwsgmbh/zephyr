@@ -178,6 +178,7 @@ int oa_tc6_set_protected_ctrl(struct oa_tc6 *tc6, bool prote)
 int oa_tc6_send_chunks(struct oa_tc6 *tc6, struct net_pkt *pkt)
 {
 	uint16_t len = net_pkt_get_len(pkt);
+	uint16_t remaining_len = len;
 	uint8_t oa_tx[tc6->cps];
 	uint32_t hdr, ftr;
 	uint8_t chunks, i;
@@ -194,16 +195,15 @@ int oa_tc6_send_chunks(struct oa_tc6 *tc6, struct net_pkt *pkt)
 	// LOG_INF("Chunk size (cps): %u, TXC: %u", tc6->cps, tc6->txc);
 
 	/* Check if LAN865x has any free internal buffer space */
-	// if (chunks > tc6->txc) {
-	// 	return -EIO;
-	// }
-	if (tc6->txc < chunks) {
-    	// LOG_INF("TX buffer space exhausted: chunks=%d, txc=%d", chunks, tc6->txc);
-    	return -ENOBUFS;
+	if (chunks > tc6->txc) {
+		LOG_ERR("TX buffer space exhausted: chunks=%d, txc=%d", chunks, tc6->txc);
+		return -EIO;
 	}
 
 	/* Transform struct net_pkt content into chunks */
 	for (i = 1; i <= chunks; i++) {
+
+		uint16_t chunk_size = (remaining_len > tc6->cps) ? tc6->cps : remaining_len;
 		hdr = FIELD_PREP(OA_DATA_HDR_DNC, 1) |
 			FIELD_PREP(OA_DATA_HDR_DV, 1) |
 			FIELD_PREP(OA_DATA_HDR_NORX, 1) |
@@ -219,7 +219,11 @@ int oa_tc6_send_chunks(struct oa_tc6 *tc6, struct net_pkt *pkt)
 		}
 
 		hdr |= FIELD_PREP(OA_DATA_HDR_P, oa_tc6_get_parity(hdr));
-
+		
+		if (net_pkt_get_len(pkt) < chunk_size) {
+            LOG_ERR("Packet underflow: remaining=%d, required=%d", net_pkt_get_len(pkt), chunk_size);
+            return -ENOBUFS;
+        }
 		// LOG_INF("Before net_pkt_read: pkt=0x%p, len=%zu, available_len=%zu",pkt, (len > tc6->cps ? tc6->cps : len), net_pkt_get_len(pkt));
 
 		if (len > net_pkt_get_len(pkt)) {
@@ -227,12 +231,11 @@ int oa_tc6_send_chunks(struct oa_tc6 *tc6, struct net_pkt *pkt)
 			return -ENOBUFS;
 		}
 
-
 		ret = net_pkt_read(pkt, oa_tx, len > tc6->cps ? tc6->cps : len);
 		if (ret < 0) {
 			// LOG_INF("VALUE OF PACKET inside packet read %d",ret);
 			// LOG_INF("Packet info: pkt=0x%p, data=0x%p, len=%zu, remaining=%zu",pkt, net_pkt_data(pkt), net_pkt_get_len(pkt), net_pkt_remaining_data(pkt));
-
+			LOG_ERR("Failed to read packet data: %d", ret);
 			return ret;
 		}
 
@@ -242,9 +245,14 @@ int oa_tc6_send_chunks(struct oa_tc6 *tc6, struct net_pkt *pkt)
 			return ret;
 		}
 
+		tc6->txc--;
+		remaining_len -= chunk_size;
+		LOG_INF("Chunk %d sent, Remaining length: %d, TXC: %d", i, remaining_len, tc6->txc);
+		LOG_INF("TXC updated: %d", tc6->txc);
+
 		len -= tc6->cps;
 	}
-
+	LOG_INF("Packet transmission completed successfully.");
 	return 0;
 }
 

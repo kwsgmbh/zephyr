@@ -7,6 +7,7 @@ zephyr_library_include_directories(
   ${ZEPHYR_BASE}/include/zephyr/drivers/usb
   ${ZEPHYR_BASE}/include/zephyr/usb/
   ${ZEPHYR_BASE}/subsys/usb/device
+  ${ZEPHYR_BASE}/drivers/ethernet
   ..
 
   # IP headers
