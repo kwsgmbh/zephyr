@@ -311,6 +311,8 @@ int oa_tc6_chunk_spi_transfer(struct oa_tc6 *tc6, uint8_t *buf_rx, uint8_t *buf_
 	}
 	*ftr = sys_be32_to_cpu(*ftr);
 
+	LOG_INF("spi transfer done \n");
+
 	return oa_tc6_update_status(tc6, *ftr);
 }
 
