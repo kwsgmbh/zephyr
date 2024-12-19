@@ -147,10 +147,27 @@ static void netusb_init(struct net_if *iface)
 	LOG_INF("netusb initialized");
 }
 
+
+/* Function to get the hardware capabilities */
+enum ethernet_hw_caps netusb_get_capabilities(const struct device *dev)
+{
+    ARG_UNUSED(dev); // Avoid unused parameter warning
+
+   // LOG_INF("Getting Ethernet hardware capabilities");
+
+    /* Return desired capabilities: TX/RX checksum offloading and VLAN support */
+   // return (ETHERNET_HW_TX_CHKSUM_OFFLOAD |ETHERNET_PROMISC_MODE| ETHERNET_HW_RX_CHKSUM_OFFLOAD | ETHERNET_HW_VLAN);
+
+	 return ( ETHERNET_PROMISC_MODE);
+}
+
+
+
+
 static const struct ethernet_api netusb_api_funcs = {
 	.iface_api.init = netusb_init,
 
-	.get_capabilities = NULL,
+	.get_capabilities = netusb_get_capabilities,
 	.send = netusb_send,
 };
 

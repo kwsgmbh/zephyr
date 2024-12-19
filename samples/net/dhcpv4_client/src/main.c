@@ -213,7 +213,7 @@ usb_iface = net_if_get_by_index(2);
     } else {
         LOG_ERR("Failed to get USB interface");
     }
-start_dhcpv4_server(usb_iface);
+//start_dhcpv4_server(usb_iface);
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
 				     NET_EVENT_IPV4_ADDR_ADD);
 	net_mgmt_add_event_callback(&mgmt_cb);
@@ -226,7 +226,7 @@ start_dhcpv4_server(usb_iface);
 
 	net_if_foreach(start_dhcpv4_client, NULL);
 
-	net_if_set_promisc(netusb_net_iface());
+	net_if_set_promisc(usb_iface);
 
 	return 0;
 }
