@@ -16,6 +16,7 @@ LOG_MODULE_REGISTER(pico_spe_custom_debug, LOG_LEVEL_DBG);
 #include <stdio.h>
 
 #include <zephyr/net/net_if.h>
+#include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_context.h>
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/usb/usb_device.h>
@@ -23,10 +24,12 @@ LOG_MODULE_REGISTER(pico_spe_custom_debug, LOG_LEVEL_DBG);
 #include <zephyr/net/net_config.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/dhcpv4_server.h> 
+// #include <zephyr/subsys/net/ip/route.h>
 #include "netusb.h"
 #include "ethernet.h"
 #include "ethernet_bridge.h"
-// #include <zephyr/subsys/net/ip/route.h>
+#include "route.h"
+
 // #include <zephyr/subsys/net/l2/ethernet/bridge.h>
 #define SLEEP_TIME_MS   1000
 #define LED0_NODE DT_ALIAS(led0)
@@ -137,6 +140,42 @@ static void assign_static_ip(struct net_if *iface, const char *ip, const char *n
 }
 
 
+static void assign_ipv6_addresses(void) {
+    struct net_if *eth_iface = net_if_get_by_index(1); // LAN interface
+    struct net_if *usb_iface = net_if_get_by_index(2); // USB interface
+    struct in6_addr addr;
+
+    // Enable NDP (Neighbor Discovery Protocol) for IPv6
+    // net_config_set(NET_IPV6_ND, true);
+
+    // Assign IPv6 address to eth0 (LAN)
+    if (eth_iface) {
+        net_ipv6_addr_create(&addr, 0x2001, 0xdb8, 0x1, 0, 0, 0, 0, 1);
+        net_if_ipv6_addr_add(eth_iface, &addr, NET_ADDR_MANUAL, 0);
+        LOG_INF("Assigned IPv6 2001:db8:1::1 to eth0");
+
+        // Add a route through the USB interface as the gateway
+        struct in6_addr nexthop;
+        net_ipv6_addr_create(&nexthop, 0x2001, 0xdb8, 0x2, 0, 0, 0, 0, 1); // IP of the USB interface
+        net_route_add(eth_iface, &addr, 64, &nexthop, 3600, 255); // Lifetime 3600 sec, max preference
+        LOG_INF("Added IPv6 route 2001:db8:1::/64 via eth1");
+    }
+
+    // Assign IPv6 address to eth1 (USB)
+    if (usb_iface) {
+        net_ipv6_addr_create(&addr, 0x2001, 0xdb8, 0x2, 0, 0, 0, 0, 1);
+        net_if_ipv6_addr_add(usb_iface, &addr, NET_ADDR_MANUAL, 0);
+        LOG_INF("Assigned IPv6 2001:db8:2::1 to eth1");
+
+        // Add a route to the LAN interface as the gateway
+        struct in6_addr nexthop;
+        net_ipv6_addr_create(&nexthop, 0x2001, 0xdb8, 0x1, 0, 0, 0, 0, 1); // IP of the LAN interface
+        net_route_add(usb_iface, &addr, 64, &nexthop, 3600, 255);
+        LOG_INF("Added IPv6 route 2001:db8:2::/64 via eth0");
+    }
+}
+
+
 
 static void handler(struct net_mgmt_event_callback *cb,
 		    uint32_t mgmt_event,
@@ -197,22 +236,24 @@ int init_usb(void)
     return 0;
 }
 
-// static void forward_packet(struct net_pkt *pkt, struct net_if *dest_iface)
-// {
-//     if (!pkt || !dest_iface) {
-//         LOG_ERR("Invalid packet or interface");
-//         return;
-//     }
+// static void setup_routes(void) {
+//     struct in_addr dest, netmask, gateway;
 
-//     net_pkt_ref(pkt);
+//     // Route for Ethernet interface
+//     net_addr_pton(AF_INET, "192.168.1.0", &dest);
+//     net_addr_pton(AF_INET, "255.255.255.0", &netmask);
+//     net_addr_pton(AF_INET, "192.168.1.254", &gateway); // Gateway for Ethernet
+//     net_route_add(eth_iface, &dest, &netmask, &gateway);
 
-//     if (net_recv_data(dest_iface, pkt) < 0) {
-//         LOG_ERR("Packet forwarding failed");
-//         net_pkt_unref(pkt);
-//     } else {
-//         LOG_INF("Packet forwarded successfully");
-//     }
+//     // Route for USB interface
+//     net_addr_pton(AF_INET, "192.168.2.0", &dest);
+//     net_addr_pton(AF_INET, "255.255.255.0", &netmask);
+//     net_addr_pton(AF_INET, "192.168.2.1", &gateway); // Gateway for USB
+//     net_route_add(usb_iface, &dest, &netmask, &gateway);
+
+//     LOG_INF("Static routes configured");
 // }
+
 
 // / Ethernet packet handler /
 static void eth_recv_cb(struct net_if *iface, struct net_pkt *pkt)
@@ -220,12 +261,7 @@ static void eth_recv_cb(struct net_if *iface, struct net_pkt *pkt)
     LOG_INF("Packet received on Ethernet");
 
     // Forward the packet to the USB interface
-    if (net_recv_data(usb_iface, pkt) < 0) {
-        LOG_ERR("Failed to forward packet from Ethernet to USB");
-        net_pkt_unref(pkt);
-    } else {
-        LOG_INF("Packet forwarded from Ethernet to USB successfully");
-    }
+    netusb_recv(pkt);
 }
 
 static void usb_recv_cb(struct net_if *iface, struct net_pkt *pkt)
@@ -249,7 +285,8 @@ static void simulate_packet_reception(struct net_if *src_iface, struct net_if *d
         LOG_ERR("Failed to allocate packet");
         return;
     }
-	LOG_DBG("****%d*****",src_iface);
+	LOG_DBG("****%d*****\n",src_iface);
+    LOG_DBG("****%d*****\n",dest_iface);
     // Add dummy data to packet
     uint8_t *data = net_pkt_data(pkt);
     for (int i = 0; i < 128; i++) {
@@ -263,7 +300,8 @@ static void simulate_packet_reception(struct net_if *src_iface, struct net_if *d
     //     net_pkt_unref(pkt);
     //     return;
     // }
-
+    eth_iface= net_if_get_by_index(1); // LAN interface
+    usb_iface = net_if_get_by_index(2);
     // // Simulate reception
     if (src_iface == eth_iface) {
         eth_recv_cb(src_iface, pkt);
@@ -276,27 +314,13 @@ static void simulate_packet_reception(struct net_if *src_iface, struct net_if *d
 }
 
 
-
-
 int main(void)
 {
-	struct net_if *iface_bridge = net_if_get_by_index(1); // Bridge interface
-    struct net_if *eth_iface= net_if_get_by_index(2); // LAN interface
-    struct net_if *usb_iface = net_if_get_by_index(3); // USB interface
+	// struct net_if *iface_bridge = net_if_get_by_index(1); // Bridge interface
+    struct net_if *eth_iface= net_if_get_by_index(1); // LAN interface
+    struct net_if *usb_iface = net_if_get_by_index(2); // USB interface
 
     // toggle_led();
-
-    if (!iface_bridge) {
-        LOG_ERR("Bridge interface not initialized");
-        return -1;
-    }else{
-        LOG_INF("Bridge iface is up\n");
-    }
-
-    net_eth_promisc_mode(eth_iface, true);
-
-    net_eth_promisc_mode(usb_iface, true);
-    
 
     // LOG_INF("Run dhcpv4 client");
 
@@ -320,45 +344,25 @@ int main(void)
   
     netusb_enable(&my_netusb_function);
 
-    if (eth_iface) {
-        assign_static_ip(eth_iface, "192.168.1.2", "255.255.255.0", "192.168.1.254");
-    } else {
-        LOG_ERR("Failed to get LAN interface");
-    }
+    // if (eth_iface) {
+    //     assign_static_ip(eth_iface, "192.168.1.2", "255.255.255.0", "192.168.1.254");
+    // } else {
+    //     LOG_ERR("Failed to get LAN interface");
+    // }
 
-    if (usb_iface) {
-        assign_static_ip(usb_iface, "192.168.1.3", "255.255.255.0", "192.168.1.254");
-    } else {
-        LOG_ERR("Failed to get USB interface");
-    }
+    // if (usb_iface) {
+    //     assign_static_ip(usb_iface, "192.168.1.3", "255.255.255.0", "192.168.1.254");
+    // } else {
+    //     LOG_ERR("Failed to get USB interface");
+    // }
+    // setup_routes();
+    assign_ipv6_addresses();
+
+	// simulate_packet_reception(eth_iface, usb_iface); // Test Ethernet to USB
     
-	/**/
-	// net_if_register_link_cb(eth_iface, eth_recv_cb);
-	// LOG_DBG("register called 1st\n");
-    // net_if_register_link_cb(usb_iface, usb_recv_cb);
-	// LOG_DBG("register called 2ND\n");
-	// start_dhcpv4_server(&iface_usb);
-	/**/
-	simulate_packet_reception(eth_iface, usb_iface); // Test Ethernet to USB
-    // simulate_packet_reception(&usb_iface, &eth_iface); // Test USB to Ethernet
-	// net_if_foreach(start_dhcpv4_client, NULL);
-    start_dhcpv4_server(usb_iface);
+    // start_dhcpv4_server(usb_iface);
 
-    int ret = eth_bridge_iface_add(iface_bridge, eth_iface);
-    // int ret1 = eth_bridge_iface_add(iface_bridge, eth_iface);
-    int ret1 = 1;
-    // if (ret < 0 || ret1 < 0) 
-    if (ret < 0 ) {
-        LOG_ERR("Error adding interface to bridge (%d, %d)\n", ret, ret1);
-    }else{
-        LOG_INF("BRIDGED\n");
-    }
-
-    if (net_if_up(iface_bridge) < 0) {
-        LOG_ERR("Failed to bring bridge interface up");
-    } else {
-        LOG_INF("Bridge interface is up");
-    }
+    
 
 	return 0;
 }
