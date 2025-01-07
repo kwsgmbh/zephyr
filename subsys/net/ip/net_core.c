@@ -510,8 +510,8 @@ int net_recv_data(struct net_if *iface, struct net_pkt *pkt)
 	net_pkt_set_overwrite(pkt, true);
 	net_pkt_cursor_init(pkt);
 
-	NET_DBG("prio %d iface %p pkt %p len %zu", net_pkt_priority(pkt),
-		iface, pkt, net_pkt_get_len(pkt));
+	// LOG_INF("prio %d iface %p pkt %p len %zu", net_pkt_priority(pkt),
+	// 	iface, pkt, net_pkt_get_len(pkt));
 
 	if (IS_ENABLED(CONFIG_NET_ROUTING)) {
 		net_pkt_set_orig_iface(pkt, iface);

@@ -3,6 +3,7 @@
 zephyr_library()
 zephyr_library_property(ALLOW_EMPTY TRUE)
 zephyr_library_include_directories(${ZEPHYR_BASE}/subsys/net/l2)
+zephyr_library_include_directories(${ZEPHYR_BASE}/samples/net/dhcpv4_client/modules/shared_lib)
 
 zephyr_library_sources_ifdef(CONFIG_ETH_DRIVER_RAW_MODE
   eth_raw.c
@@ -20,6 +21,7 @@ zephyr_library_sources_ifdef(CONFIG_ETH_XLNX_GEM
 
 zephyr_library_sources_ifdef(CONFIG_ETH_DWMAC		eth_dwmac.c)
 zephyr_library_sources_ifdef(CONFIG_ETH_DWMAC_STM32H7X	eth_dwmac_stm32h7x.c)
+
 zephyr_library_sources_ifdef(CONFIG_ETH_DWMAC_MMU	eth_dwmac_mmu.c)
 
 zephyr_library_sources_ifdef(CONFIG_ETH_E1000		eth_e1000.c)

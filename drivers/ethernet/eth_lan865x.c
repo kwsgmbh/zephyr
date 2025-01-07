@@ -7,7 +7,7 @@
 #define DT_DRV_COMPAT microchip_lan865x
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(eth_lan865x, CONFIG_ETHERNET_LOG_LEVEL);
+LOG_MODULE_REGISTER(eth_lan865x, CONFIG_LOG_MAX_LEVEL);
 
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/phy.h>
@@ -18,8 +18,12 @@ LOG_MODULE_REGISTER(eth_lan865x, CONFIG_ETHERNET_LOG_LEVEL);
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/phy.h>
-
+#include <usb_forward_send.h>
 #include "eth_lan865x_priv.h"
+#include <print_packet.h>
+
+//#include "bridged_iface_utils.h"
+
 
 static int lan865x_mac_rxtx_control(const struct device *dev, bool en)
 {
@@ -413,7 +417,9 @@ static void lan865x_read_chunks(const struct device *dev)
 
 	k_sem_take(&ctx->tx_rx_sem, K_FOREVER);
 	ret = oa_tc6_read_chunks(tc6, pkt);
+	LOG_INF(" oa_tc6_read_chunks returned %d ", ret);
 	if (ret < 0) {
+		LOG_ERR(" oa_tc6_read_chunks returned %d ", ret);
 		eth_stats_update_errors_rx(ctx->iface);
 		net_pkt_unref(pkt);
 		k_sem_give(&ctx->tx_rx_sem);
@@ -421,11 +427,24 @@ static void lan865x_read_chunks(const struct device *dev)
 	}
 
 	/* Feed buffer frame to IP stack */
-	ret = net_recv_data(ctx->iface, pkt);
+	//LOG_INF("Interface eth ctx %p", ctx->iface);
+	ret = net_recv_data(ctx->iface, pkt); 
+	// if (forward_packet_send(pkt) < 0) {
+	// 	LOG_INF("Packet %p dropped by NET stack", pkt);
+	// 	net_pkt_unref(pkt);
+	// }
+	/* Feed buffer frame to forward  */  
+	//forward_packet(ctx->iface, usb_iface, pkt);
 	if (ret < 0) {
 		LOG_ERR("OA RX: Could not process packet (%d)!", ret);
-		net_pkt_unref(pkt);
-	}
+		net_pkt_unref(pkt);}
+	// }else {
+    //     LOG_DBG("Packet received on Ethernet interface");
+	// 	/* Forward the packet to usb interface */
+    //     if (usb_iface && net_pkt_iface(pkt) == ctx->iface) {
+    //         LOG_DBG("Forwarding packet to USB interface");
+    //         //forward_packet(ctx->iface, usb_iface, pkt);
+    //     }
 	k_sem_give(&ctx->tx_rx_sem);
 }
 
@@ -555,9 +574,13 @@ static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
 	struct oa_tc6 *tc6 = ctx->tc6;
 	int ret;
 
+	//display_net_pkt_details(pkt);
+
+	//LOG_INF("Enterd to port send...............\n");
+
 	k_sem_take(&ctx->tx_rx_sem, K_FOREVER);
 	ret = oa_tc6_send_chunks(tc6, pkt);
-
+	//LOG_INF("oa_tc6_send_chunks returned -> %d...............\n",ret);
 	/* Check if rca > 0 during half-duplex TX transmission */
 	if (tc6->rca > 0) {
 		k_sem_give(&ctx->int_sem);

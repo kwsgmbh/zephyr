@@ -14,6 +14,7 @@
 #include <zephyr/net/net_if.h>
 #include <ethernet/eth_stats.h>
 #include "oa_tc6.h"
+#include <usb_forward_send.h>
 
 #define LAN865X_SPI_MAX_FREQUENCY		25000000U
 #define LAN865X_HW_BOOT_DELAY_MS                7

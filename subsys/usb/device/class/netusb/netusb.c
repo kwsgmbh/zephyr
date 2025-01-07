@@ -7,7 +7,7 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(usb_net, CONFIG_USB_DEVICE_NETWORK_LOG_LEVEL);
+LOG_MODULE_REGISTER(usb_net, 4);
 
 #include <zephyr/init.h>
 
@@ -18,7 +18,9 @@ LOG_MODULE_REGISTER(usb_net, CONFIG_USB_DEVICE_NETWORK_LOG_LEVEL);
 #include <usb_descriptor.h>
 
 #include "netusb.h"
-
+#include <eth_forward_reciv.h>
+//#include <bridged_iface_utils.h>
+#include <print_packet.h>
 static struct __netusb {
 	struct net_if *iface;
 	const struct netusb_function *func;
@@ -30,8 +32,8 @@ static int netusb_send(const struct device *dev, struct net_pkt *pkt)
 
 	ARG_UNUSED(dev);
 
-	LOG_DBG("Send pkt, len %zu", net_pkt_get_len(pkt));
-
+	//LOG_DBG("Send pkt, len %zu", net_pkt_get_len(pkt));
+	//display_net_pkt_details(pkt);
 	if (!netusb_enabled()) {
 		LOG_ERR("interface disabled");
 		return -ENODEV;
@@ -52,13 +54,39 @@ struct net_if *netusb_net_iface(void)
 
 void netusb_recv(struct net_pkt *pkt)
 {
-	LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
-
+	//LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
+	//LOG_INF("USB RECEIVE");
+	//display_net_pkt_details(pkt);
 	if (net_recv_data(netusb.iface, pkt) < 0) {
 		LOG_ERR("Packet %p dropped by NET stack", pkt);
 		net_pkt_unref(pkt);
 	}
+	// if (forward_packet_receive(pkt) < 0) {
+	// 	LOG_INF("Packet %p dropped by NET stack", pkt);
+	// 	net_pkt_unref(pkt);
+	// }
 }
+
+/*code for forwading packets to ethernet */  
+
+// void netusb_recv(struct net_pkt *pkt)
+// {
+//     LOG_DBG("Received packet, len %zu", net_pkt_get_len(pkt));
+
+//     if (!pkt || !eth_iface) {
+//         LOG_ERR("Invalid packet or target interface");
+//         net_pkt_unref(pkt);
+//         return;
+//     }
+
+//     // Forward the packet to the Ethernet interface
+//     if (net_recv_data(eth_iface, pkt) < 0) {
+//         LOG_ERR("Packet %p dropped by NET stack", pkt);
+//         net_pkt_unref(pkt);
+//     } else {
+//         LOG_DBG("Packet forwarded to Ethernet interface");
+//     }
+// }
 
 static int netusb_connect_media(void)
 {
@@ -149,6 +177,7 @@ static int netusb_init_dev(const struct device *dev)
 	ARG_UNUSED(dev);
 	return 0;
 }
+
 
 NET_DEVICE_INIT(eth_netusb, "eth_netusb", netusb_init_dev, NULL, NULL, NULL,
 		CONFIG_ETH_INIT_PRIORITY, &netusb_api_funcs, ETHERNET_L2,
