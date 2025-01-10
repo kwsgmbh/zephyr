@@ -17,5 +17,6 @@ if(EXISTS ${BOARD_DIR}/CMakeLists.txt)
 
   add_subdirectory(${BOARD_DIR} ${build_dir})
 endif()
+zephyr_include_directories(${ZEPHYR_BASE}/dts/arm/raspberrypi)
 
 add_subdirectory(shields)
