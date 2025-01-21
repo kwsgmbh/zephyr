@@ -71,4 +71,5 @@ zephyr_library_include_directories(. ${ZEPHYR_BASE}/subsys/net/lib)
 zephyr_library_include_directories(
   ${ZEPHYR_BASE}/kernel/include
   ${ARCH_DIR}/${ARCH}/include
+  ${ZEPHYR_BASE}/samples/net/dhcpv4_client/modules/shared_lib
   )

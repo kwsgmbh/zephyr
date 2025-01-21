@@ -14,23 +14,20 @@ LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
 #include <zephyr/linker/sections.h>
 #include <errno.h>
 #include <stdio.h>
+
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_context.h>
 #include <zephyr/net/net_mgmt.h>
-#include <zephyr/usb/usb_device.h>
-#include <zephyr/net/net_config.h>
-#include <print_packet.h>
+//#include <zephyr/net/ethernet_bridge.h>
 #define DHCP_OPTION_NTP (42)
-
-struct net_if *eth_iface = NULL;
-struct net_if *usb_iface = NULL;
 
 static uint8_t ntp_server[4];
 
 static struct net_mgmt_event_callback mgmt_cb;
 
 static struct net_dhcpv4_option_callback dhcp_cb;
+
 
 static void start_dhcpv4_client(struct net_if *iface, void *user_data)
 {
@@ -39,6 +36,43 @@ static void start_dhcpv4_client(struct net_if *iface, void *user_data)
 	LOG_INF("Start on %s: index=%d", net_if_get_device(iface)->name,
 		net_if_get_by_iface(iface));
 	net_dhcpv4_start(iface);
+}
+
+static void start_dhcpv4_server(struct net_if *iface)
+{
+    int ret;
+    struct in_addr base_addr;
+    LOG_INF("entered into start server function\n");
+    if (net_addr_pton(AF_INET, "192.168.1.4", &base_addr) < 0) {
+        LOG_ERR("Invalid base address for DHCP server");
+        return;
+    }
+
+    LOG_INF("Start DHCP server on %s: index=%d", net_if_get_device(iface)->name,
+            net_if_get_by_iface(iface));
+
+    ret = net_dhcpv4_server_start(iface, &base_addr);
+    if (ret != 0) {
+        LOG_ERR("Failed to start DHCP server: %d", ret);
+    }
+}
+
+static void assign_static_ip(struct net_if *iface, const char *ip, const char *netmask, const char *gateway)
+{
+    struct in_addr addr, netmask_addr, gateway_addr;
+
+    // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
+
+    if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
+        net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
+        net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
+        LOG_ERR("Invalid static IP configuration");
+        return;
+    }
+
+    net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
+    net_if_ipv4_set_netmask(iface, &netmask_addr);
+    net_if_ipv4_set_gw(iface, &gateway_addr);
 }
 
 static void handler(struct net_mgmt_event_callback *cb,
@@ -96,60 +130,70 @@ int init_usb(void)
 		printk("usb enable error %d\n", ret);
 	}
 	return 0;
+
 }
 
-static void assign_static_ip(struct net_if *iface, const char *ip, const char *netmask, const char *gateway)
-{
-    struct in_addr addr, netmask_addr, gateway_addr;
- 
-    // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
- 
-    if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
-        net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
-        net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
-        LOG_ERR("Invalid static IP configuration");
-        return;
+
+/* Forward packet from one interface to another */
+static void forward_packet(struct net_if *src_iface, struct net_if *dst_iface, struct net_pkt *pkt) {
+    net_pkt_ref(pkt);  // Increment reference count
+    net_pkt_set_iface(pkt, dst_iface);  // Set the destination interface
+
+    int ret = net_recv_data(dst_iface, pkt);  // Forward the packet
+    if (ret < 0) {
+        net_pkt_unref(pkt);  // Free packet if forwarding fails
     }
- 
-    net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
-    net_if_ipv4_set_netmask(iface, &netmask_addr);
-    net_if_ipv4_set_gw(iface, &gateway_addr);
 }
- 
+
+/* Packet filter callback */
+static bool packet_filter_callback(struct net_if *iface, struct net_pkt *pkt, void *user_data) {
+    struct net_if *other_iface = (struct net_if *)user_data;
+
+    /* Example: Simple forwarding without filtering */
+    if (iface != other_iface) {
+        forward_packet(iface, other_iface, pkt);
+    }
+
+    /* Return false to let the stack process the packet further if necessary */
+    return false;
+}
+
 
 int main(void)
 {
-	LOG_INF("Run dhcpv4 client with usb");
-
-	eth_iface = net_if_get_by_index(1); // LAN interface
-    usb_iface = net_if_get_by_index(2); // USB interface
-
 	init_usb();
+	LOG_INF("Run dhcpv4 client");
+
+	// net_mgmt_init_event_callback(&mgmt_cb, handler,
+	// 			     NET_EVENT_IPV4_ADDR_ADD);
+	// net_mgmt_add_event_callback(&mgmt_cb);
+
+	// net_dhcpv4_init_option_callback(&dhcp_cb, option_handler,
+	// 				DHCP_OPTION_NTP, ntp_server,
+	// 				sizeof(ntp_server));
+
+	// net_dhcpv4_add_option_callback(&dhcp_cb);
+
+	// net_if_foreach(start_dhcpv4_client, NULL);
+
+	struct net_if *eth_iface = net_if_get_by_index(1);
+    struct net_if *usb_iface = net_if_get_by_index(3);
+
+	// net_pkt_filter_register(iface1, packet_filter_callback, iface2);
+
+    // /* Register packet filter for iface2 -> iface1 */
+    // net_pkt_filter_register(iface2, packet_filter_callback, iface1);
 
 	if (eth_iface) {
-        assign_static_ip(eth_iface, "192.168.1.2", "255.255.255.0", "192.168.1.254");
+        assign_static_ip(eth_iface, "192.168.2.2", "255.255.255.0", "192.168.2.254");
     } else {
         LOG_ERR("Failed to get LAN interface");
     }
 
     if (usb_iface) {
-        assign_static_ip(usb_iface, "192.168.1.3", "255.255.255.0", "192.168.1.254");
+        assign_static_ip(usb_iface, "192.168.1.3", "255.255.255.0", "192.168.1.254"); // change to 3
     } else {
         LOG_ERR("Failed to get USB interface");
     }
-
-
-	net_mgmt_init_event_callback(&mgmt_cb, handler,
-				     NET_EVENT_IPV4_ADDR_ADD);
-	net_mgmt_add_event_callback(&mgmt_cb);
-
-	net_dhcpv4_init_option_callback(&dhcp_cb, option_handler,
-					DHCP_OPTION_NTP, ntp_server,
-					sizeof(ntp_server));
-
-	net_dhcpv4_add_option_callback(&dhcp_cb);
-
-	net_if_foreach(start_dhcpv4_client, NULL);
-
 	return 0;
 }

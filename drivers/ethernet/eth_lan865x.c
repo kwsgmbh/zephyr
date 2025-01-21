@@ -428,6 +428,8 @@ static void lan865x_read_chunks(const struct device *dev)
 
 	/* Feed buffer frame to IP stack */
 	//LOG_INF("Interface eth ctx %p", ctx->iface);
+	LOG_INF("....eth_lan865_recive....");
+	display_net_pkt_details(pkt);
 	ret = net_recv_data(ctx->iface, pkt); 
 	// if (forward_packet_send(pkt) < 0) {
 	// 	LOG_INF("Packet %p dropped by NET stack", pkt);
@@ -574,9 +576,30 @@ static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
 	struct oa_tc6 *tc6 = ctx->tc6;
 	int ret;
 
+	//LOG_INF("Enterd to port send...............\n");
+	LOG_INF("....eth_lan865_send....");
+	    if (!pkt ) {
+        LOG_ERR("Invalid packet from eth_lan865");
+        net_pkt_unref(pkt);
+        return;	
+    }
+
+	struct net_eth_hdr eth_hdr;
+
+	if (!net_pkt_lladdr_src(pkt)) {
+    LOG_INF("Adding default Ethernet header");
+    memset(&eth_hdr, 0, sizeof(eth_hdr));
+    net_pkt_write(pkt, &eth_hdr, sizeof(eth_hdr));
+}
+
 	//display_net_pkt_details(pkt);
 
-	//LOG_INF("Enterd to port send...............\n");
+	LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
+
+	if (net_pkt_get_len(pkt) < 20) {
+    LOG_ERR("Packet too short, rejecting");
+    return -ENODATA;
+	}
 
 	k_sem_take(&ctx->tx_rx_sem, K_FOREVER);
 	ret = oa_tc6_send_chunks(tc6, pkt);

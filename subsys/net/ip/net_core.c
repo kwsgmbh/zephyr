@@ -60,6 +60,8 @@ LOG_MODULE_REGISTER(net_core, CONFIG_NET_CORE_LOG_LEVEL);
 
 #include "net_stats.h"
 
+#include <print_packet.h>
+
 #if defined(CONFIG_NET_NATIVE)
 static inline enum net_verdict process_data(struct net_pkt *pkt,
 					    bool is_loopback)
@@ -507,11 +509,16 @@ int net_recv_data(struct net_if *iface, struct net_pkt *pkt)
 		goto err;
 	}
 
+	// LOG_INF("....NET_CORE....");
+	// display_net_pkt_details(pkt);
+
 	net_pkt_set_overwrite(pkt, true);
 	net_pkt_cursor_init(pkt);
 
+	
+
 	// LOG_INF("prio %d iface %p pkt %p len %zu", net_pkt_priority(pkt),
-	// 	iface, pkt, net_pkt_get_len(pkt));
+	//  	iface, pkt, net_pkt_get_len(pkt));
 
 	if (IS_ENABLED(CONFIG_NET_ROUTING)) {
 		net_pkt_set_orig_iface(pkt, iface);
@@ -521,6 +528,7 @@ int net_recv_data(struct net_if *iface, struct net_pkt *pkt)
 
 	if (!net_pkt_filter_recv_ok(pkt)) {
 		/* silently drop the packet */
+		LOG_INF("....silently dropped the packet....");
 		net_pkt_unref(pkt);
 	} else {
 		net_queue_rx(iface, pkt);
