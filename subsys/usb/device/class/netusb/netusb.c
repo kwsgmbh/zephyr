@@ -22,7 +22,7 @@ LOG_MODULE_REGISTER(usb_net, 4);
 //#include <bridged_iface_utils.h>
 #include <print_packet.h>
 #include <arp.h>
-#define CONFIG_TARGET_ETH_IFACE_INDEX 1
+#define CONFIG_TARGET_ETH_IFACE_INDEX 2
 static bool promiscuous_mode_enabled = false;
 
 static int process_arp_packet(struct net_pkt *pkt_clone, struct net_if *eth_iface, bool has_eth_header);
@@ -362,6 +362,9 @@ static int netusb_send(const struct device *dev, struct net_pkt *pkt)
 
 	//LOG_DBG("Send pkt, len %zu", net_pkt_get_len(pkt));
 	LOG_INF("....netusb_send....");
+
+    //LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
+
 	//display_net_pkt_details(pkt);
 	
 
@@ -390,6 +393,7 @@ void netusb_recv(struct net_pkt *pkt)
 	//LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
 	//LOG_INF("....USB RECEIVE....");
 	//display_net_pkt_details(pkt);
+    //LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
 
 	if (net_recv_data(netusb.iface, pkt) < 0) {
 		LOG_ERR("Packet %p dropped by NET stack", pkt);
@@ -542,19 +546,28 @@ static void netusb_init(struct net_if *iface)
 	LOG_INF("netusb initialized");
 }
 
-static int netusb_set_promiscuous_mode(const struct device *dev, bool enable)
+static int netusb_set_promiscuous_mode(const struct device *dev,
+                                       enum ethernet_config_type type,
+                                       const struct ethernet_config *config)
 {
-    ARG_UNUSED(dev);
+    // Check if the configuration type is for promiscuous mode
+    if (type != ETHERNET_CONFIG_TYPE_PROMISC_MODE) {
+        return -EINVAL; // Return an error for unsupported types
+    }
 
-    promiscuous_mode_enabled = enable;
+    // Extract the promiscuous mode value from the config
+    bool enable = config->promisc_mode;
 
     if (enable) {
         LOG_INF("Enabling promiscuous mode");
+        // Add logic to enable promiscuous mode
+        // alredy forwads all the packets
     } else {
         LOG_INF("Disabling promiscuous mode");
+        // Add logic to disable promiscuous mode
     }
 
-    return 0;
+    return 0; // Indicate success
 }
 
 
@@ -567,8 +580,9 @@ static enum ethernet_hw_caps netusb_get_capabilities(const struct device *dev)
 static const struct ethernet_api netusb_api_funcs = {
 	.iface_api.init = netusb_init,
 	.get_capabilities = netusb_get_capabilities,
-	.send = netusb_send,
     .set_config = netusb_set_promiscuous_mode,
+	.send = netusb_send,
+    
 };
 
 static int netusb_init_dev(const struct device *dev)

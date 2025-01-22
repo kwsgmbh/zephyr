@@ -21,6 +21,7 @@ LOG_MODULE_REGISTER(eth_lan865x, CONFIG_LOG_MAX_LEVEL);
 #include <usb_forward_send.h>
 #include "eth_lan865x_priv.h"
 #include <print_packet.h>
+#include <arp.h>
 
 //#include "bridged_iface_utils.h"
 
@@ -429,7 +430,8 @@ static void lan865x_read_chunks(const struct device *dev)
 	/* Feed buffer frame to IP stack */
 	//LOG_INF("Interface eth ctx %p", ctx->iface);
 	LOG_INF("....eth_lan865_recive....");
-	display_net_pkt_details(pkt);
+	//display_net_pkt_details(pkt);
+	LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
 	ret = net_recv_data(ctx->iface, pkt); 
 	// if (forward_packet_send(pkt) < 0) {
 	// 	LOG_INF("Packet %p dropped by NET stack", pkt);
@@ -578,28 +580,35 @@ static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
 
 	//LOG_INF("Enterd to port send...............\n");
 	LOG_INF("....eth_lan865_send....");
-	    if (!pkt ) {
+	//display_net_pkt_details(pkt);
+	LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
+	if (!pkt ) {
         LOG_ERR("Invalid packet from eth_lan865");
         net_pkt_unref(pkt);
-        return;	
+        return -EINVAL;	
     }
+
+	// if (net_pkt_get_len(pkt) < sizeof(struct net_arp_hdr)) {
+    // LOG_ERR("Packet too short for ARP processing");
+    // return -EINVAL;
+    // }
 
 	struct net_eth_hdr eth_hdr;
 
-	if (!net_pkt_lladdr_src(pkt)) {
-    LOG_INF("Adding default Ethernet header");
-    memset(&eth_hdr, 0, sizeof(eth_hdr));
-    net_pkt_write(pkt, &eth_hdr, sizeof(eth_hdr));
-}
+// 	if (!net_pkt_lladdr_src(pkt)) {
+//     LOG_INF("Adding default Ethernet header");
+//     memset(&eth_hdr, 0, sizeof(eth_hdr));
+//     net_pkt_write(pkt, &eth_hdr, sizeof(eth_hdr));
+//    }
 
 	//display_net_pkt_details(pkt);
 
-	LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
+	//LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
 
-	if (net_pkt_get_len(pkt) < 20) {
-    LOG_ERR("Packet too short, rejecting");
-    return -ENODATA;
-	}
+	// if (net_pkt_get_len(pkt) < 20) {
+    // LOG_ERR("Packet too short, rejecting");
+    // return -ENODATA;
+	// }
 
 	k_sem_take(&ctx->tx_rx_sem, K_FOREVER);
 	ret = oa_tc6_send_chunks(tc6, pkt);
