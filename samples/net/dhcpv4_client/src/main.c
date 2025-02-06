@@ -64,6 +64,13 @@ static void assign_static_ip(struct net_if *iface, const char *ip, const char *n
 
     // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
 
+    // if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
+    //     net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
+    //     net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
+    //     LOG_ERR("Invalid static IP configuration");
+    //     return;
+    // }
+
     if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
         net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
         net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
@@ -176,9 +183,10 @@ int main(void)
 	// net_dhcpv4_add_option_callback(&dhcp_cb);
 
 	// net_if_foreach(start_dhcpv4_client, NULL);
-
-	 struct net_if *eth_iface = net_if_get_by_index(2);
-   	 struct net_if *usb_iface = net_if_get_by_index(3);
+    struct net_if *brdge_iface = net_if_get_by_index(1);
+	struct net_if *eth_iface = net_if_get_by_index(2);
+   	struct net_if *usb_iface = net_if_get_by_index(3);
+     
 
 	// net_pkt_filter_register(iface1, packet_filter_callback, iface2);
 
@@ -186,15 +194,27 @@ int main(void)
     // net_pkt_filter_register(iface2, packet_filter_callback, iface1);
 
 	if (eth_iface) {
-        assign_static_ip(eth_iface, "192.168.2.2", "255.255.255.0", "192.168.2.254");
+        assign_static_ip(eth_iface, "192.178.1.2", "255.255.255.0", "192.178.1.1");
     } else {
         LOG_ERR("Failed to get LAN interface");
     }
 
     if (usb_iface) {
-        assign_static_ip(usb_iface, "192.168.1.3", "255.255.255.0", "192.168.1.254"); // change to 3
+        assign_static_ip(usb_iface, "192.178.1.3", "255.255.255.0", "192.178.1.1"); // change to 3
     } else {
         LOG_ERR("Failed to get USB interface");
     }
+
+    // configure bridge
+
+    // ret = eth_bridge_iface_add(brdge_iface, eth_iface);
+	// 	if (ret < 0) {
+	// 		LOG_ERR("error: bridge eth_iface add (%d)\n", ret);
+	// 	}
+    // ret = eth_bridge_iface_add(brdge_iface, usb_iface);
+    //     if (ret < 0){
+    //         LOGERR("error: bridge usb_iface add (%d) \n");
+    //     }
+
 	return 0;
 }

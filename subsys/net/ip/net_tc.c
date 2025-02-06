@@ -253,7 +253,6 @@ static void tc_rx_handler(void *p1, void *p2, void *p3)
 		if (pkt == NULL) {
 			continue;
 		}
-
 		net_process_rx_packet(pkt);
 	}
 }
@@ -274,8 +273,7 @@ static void tc_tx_handler(void *p1, void *p2, void *p3)
 			continue;
 		}
 
-		net_process_tx_packet(pkt);
-	}
+		net_process_tx_packet(pkt);  	}
 }
 #endif
 

@@ -365,7 +365,7 @@ static int netusb_send(const struct device *dev, struct net_pkt *pkt)
 
     //LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
 
-	//display_net_pkt_details(pkt);
+	display_net_pkt_details(pkt);
 	
 
 	if (!netusb_enabled()) {
@@ -390,7 +390,7 @@ struct net_if *netusb_net_iface(void)
 
 void netusb_recv(struct net_pkt *pkt)
 {
-	//LOG_DBG("Recv pkt, len %zu", net_pkt_get_len(pkt));
+	//LOG_DBG("Recv pkt %p, len %zu", pkt, net_pkt_get_len(pkt));
 	//LOG_INF("....USB RECEIVE....");
 	//display_net_pkt_details(pkt);
     //LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");

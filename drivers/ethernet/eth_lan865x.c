@@ -429,9 +429,9 @@ static void lan865x_read_chunks(const struct device *dev)
 
 	/* Feed buffer frame to IP stack */
 	//LOG_INF("Interface eth ctx %p", ctx->iface);
-	LOG_INF("....eth_lan865_recive....");
+	//LOG_INF("....eth_lan865_recive....");
 	//display_net_pkt_details(pkt);
-	LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
+	//LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
 	ret = net_recv_data(ctx->iface, pkt); 
 	// if (forward_packet_send(pkt) < 0) {
 	// 	LOG_INF("Packet %p dropped by NET stack", pkt);
@@ -490,6 +490,7 @@ static void lan865x_int_thread(const struct device *dev)
 		 */
 		do {
 			lan865x_read_chunks(dev);
+
 		} while (tc6->rca > 0);
 
 		ret = oa_tc6_check_status(tc6);
@@ -579,9 +580,9 @@ static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
 	int ret;
 
 	//LOG_INF("Enterd to port send...............\n");
-	LOG_INF("....eth_lan865_send....");
+	//LOG_INF("....eth_lan865_send....");
 	//display_net_pkt_details(pkt);
-	LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
+	//LOG_HEXDUMP_INF(net_pkt_data(pkt), net_pkt_get_len(pkt), "Packet data dump");
 	if (!pkt ) {
         LOG_ERR("Invalid packet from eth_lan865");
         net_pkt_unref(pkt);
@@ -593,7 +594,7 @@ static int lan865x_port_send(const struct device *dev, struct net_pkt *pkt)
     // return -EINVAL;
     // }
 
-	struct net_eth_hdr eth_hdr;
+	//struct net_eth_hdr eth_hdr;
 
 // 	if (!net_pkt_lladdr_src(pkt)) {
 //     LOG_INF("Adding default Ethernet header");

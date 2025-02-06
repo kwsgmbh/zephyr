@@ -19,7 +19,7 @@ LOG_MODULE_REGISTER(net_eth_bridge, CONFIG_NET_ETHERNET_BRIDGE_LOG_LEVEL);
 
 #include "net_private.h"
 #include "bridge.h"
-
+#include <zephyr/net/net_core.h>
 #if defined(CONFIG_NET_ETHERNET_BRIDGE_TXRX_DEBUG)
 #define DEBUG_TX 1
 #define DEBUG_RX 1
@@ -65,6 +65,21 @@ static void iface_cb(struct net_if *iface, void *user_data)
 
 	br_user_data->cb(ctx, br_user_data->user_data);
 }
+
+bool is_valid_packet_data(struct net_pkt *pkt) {
+    if (!pkt) {
+        NET_DBG("Packet is NULL");
+        return false;
+    }
+
+    if (!net_pkt_lladdr_dst(pkt)) {
+        NET_DBG("Packet destination address is NULL");
+        return false;
+    }
+
+    return true;
+}
+
 
 void net_eth_bridge_foreach(eth_bridge_cb_t cb, void *user_data)
 {
@@ -333,71 +348,85 @@ static int bridge_iface_stop(const struct device *dev)
 	return 0;
 }
 
+
 static enum net_verdict bridge_iface_process(struct net_if *iface,
-					     struct net_pkt *pkt,
-					     bool is_send)
+                                             struct net_pkt *pkt,
+                                             bool is_send)
 {
-	struct eth_bridge_iface_context *ctx = net_if_get_device(iface)->data;
-	struct net_if *orig_iface;
-	struct net_pkt *send_pkt;
-	size_t count;
+    struct eth_bridge_iface_context *ctx = net_if_get_device(iface)->data;
+    struct net_if *orig_iface;
+    struct net_pkt *send_pkt;
 
-	/* Drop all link-local packets for now. */
-	if (is_link_local_addr((struct net_eth_addr *)net_pkt_lladdr_dst(pkt))) {
-		NET_DBG("DROP: lladdr");
-		return NET_DROP;
-	}
+    //LOG_INF("Processing pkt %p: len %zu, iface %d", pkt, net_pkt_get_len(pkt), net_if_get_by_iface(iface));
 
-	lock_bridge(ctx);
+    if (!is_valid_packet_data(pkt)) {
+        LOG_ERR("Dropping invalid packet");
+        net_pkt_unref(pkt);
+        return NET_DROP;
+    }
 
-	/* Keep the original packet interface so that we can send to each
-	 * bridged interface.
-	 */
-	orig_iface = net_pkt_orig_iface(pkt);
+    if (!ctx->is_init) {
+        NET_ERR("Bridge context is not initialized");
+        return NET_DROP;
+    }
 
-	count = ctx->count;
+    // Check if the packet is an ARP packet
+    struct net_eth_hdr *eth_hdr = (struct net_eth_hdr *)net_pkt_data(pkt);
+    if (eth_hdr->type == htons(NET_ETH_PTYPE_ARP)) {
+        LOG_DBG("ARP packet detected");
 
-	/* Pass the data to all the Ethernet interface except the originator
-	 * Ethernet interface.
-	 */
-	ARRAY_FOR_EACH(ctx->eth_iface, i) {
-		if (ctx->eth_iface[i] != NULL && ctx->eth_iface[i] != orig_iface) {
-			/* Skip it if not up */
-			if (!net_if_flag_is_set(ctx->eth_iface[i], NET_IF_UP)) {
-				continue;
-			}
+        //Forward ARP packet to the other interface 
+        orig_iface = net_pkt_orig_iface(pkt);
+        struct net_if *target_iface = (orig_iface == ctx->eth_iface[0])
+                                          ? ctx->eth_iface[1]
+                                          : ctx->eth_iface[0];
 
-			/* Clone the packet if we have more than two interfaces in the bridge
-			 * because the first send might mess the data part of the message.
-			 */
-			if (count > 2) {
-				send_pkt = net_pkt_clone(pkt, K_NO_WAIT);
-				net_pkt_ref(send_pkt);
-			} else {
-				send_pkt = net_pkt_ref(pkt);
-			}
+        if (target_iface && net_if_flag_is_set(target_iface, NET_IF_UP)) {
+            send_pkt = net_pkt_ref(pkt);
+            net_pkt_set_iface(send_pkt, target_iface);
+            net_if_queue_tx(target_iface, send_pkt);
 
-			net_pkt_set_family(send_pkt, AF_UNSPEC);
-			net_pkt_set_iface(send_pkt, ctx->eth_iface[i]);
-			net_if_queue_tx(ctx->eth_iface[i], send_pkt);
+            LOG_DBG("Forwarded ARP pkt %p to iface %d", send_pkt, net_if_get_by_iface(target_iface));
+            net_pkt_unref(send_pkt);
+        } else {
+            LOG_ERR("Target interface is not available for ARP forwarding");
+            net_pkt_unref(pkt);
+            return NET_DROP;
+        }
 
-			NET_DBG("%s iface %d pkt %p (ref %d)",
-				is_send ? "Send" : "Recv",
-				net_if_get_by_iface(ctx->eth_iface[i]),
-				send_pkt, (int)atomic_get(&send_pkt->atomic_ref));
+        return NET_OK;
+    }
 
-			net_pkt_unref(send_pkt);
-		}
-	}
+    
+    orig_iface = net_pkt_orig_iface(pkt);
+    struct net_if *eth_usb_iface = ctx->eth_iface[0]; // usb interface
+    struct net_if *eth_iface = ctx->eth_iface[1];     // ethernet interface
 
-	unlock_bridge(ctx);
+    if (orig_iface == eth_usb_iface && net_if_flag_is_set(eth_iface, NET_IF_UP)) {
+        send_pkt = net_pkt_ref(pkt);
+        net_pkt_set_iface(send_pkt, eth_iface);
+        net_if_queue_tx(eth_iface, send_pkt);
 
-	/* The packet was cloned by the caller so remove it here. */
-	net_pkt_unref(pkt);
+        LOG_DBG("Forwarded pkt %p from USB to Ethernet", send_pkt);
+        net_pkt_unref(send_pkt);
+    } else if (orig_iface == eth_iface && net_if_flag_is_set(eth_usb_iface, NET_IF_UP)) {
+        send_pkt = net_pkt_ref(pkt);
+        net_pkt_set_iface(send_pkt, eth_usb_iface);
+        net_if_queue_tx(eth_usb_iface, send_pkt);
 
-	return NET_OK;
+        LOG_DBG("Forwarded pkt %p from Ethernet to USB", send_pkt);
+        net_pkt_unref(send_pkt);
+    } else {
+        LOG_DBG("DROP: pkt %p not between hardcoded interfaces", pkt);
+        net_pkt_unref(pkt);
+        return NET_DROP;
+    }
 
+    unlock_bridge(ctx);
+
+    return NET_OK;
 }
+
 
 int bridge_iface_send(struct net_if *iface, struct net_pkt *pkt)
 {
