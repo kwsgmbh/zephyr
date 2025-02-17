@@ -1,0 +1,6 @@
+board:
+  name: pico2_spe
+  full_name: Raspberry Pi Pico 2
+  vendor: raspberrypi
+  socs:
+  - name: rp2350a

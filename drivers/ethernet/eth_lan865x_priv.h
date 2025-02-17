@@ -73,4 +73,6 @@ struct lan865x_data {
 	k_tid_t tid_int;
 };
 
+int lan865x_write_from_user_macaddress(const struct device *dev, const uint8_t *mac);
+
 #endif /* ETH_LAN865X_PRIV_H__ */
