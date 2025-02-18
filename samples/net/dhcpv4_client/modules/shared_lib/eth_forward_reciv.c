@@ -28,10 +28,6 @@ int forward_packet_receive(struct net_pkt *pkt) {
     
     LOG_INF("featched the interface eth receive -> %p\n", eth_iface1);
 
-    /* Reference the packet for forwarding */
-    //net_pkt_ref(pkt);
-    net_pkt_iface(pkt) == eth_iface1;
-
     /* Send the packet to the destination interface */
     if (net_recv_data(eth_iface1, pkt) < 0) {
         LOG_INF("Failed to forward packet");

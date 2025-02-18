@@ -20,7 +20,11 @@ LOG_MODULE_REGISTER(net_dhcpv4_client_sample, LOG_LEVEL_DBG);
 #include <zephyr/net/net_context.h>
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/usb/usb_device.h>
-//#include <zephyr/net/ethernet_bridge.h>
+#include <zephyr/net/ethernet_bridge.h>
+
+#define ETH_IFACE_IDX    2
+#define USB_IFACE_IDX    3
+#define BRIDGE_IFACE_IDX 1
 //#define DHCP_OPTION_NTP (42)
 
 //static uint8_t ntp_server[4];
@@ -142,29 +146,29 @@ int init_usb(void)
 }
 
 
-/* Forward packet from one interface to another */
-static void forward_packet(struct net_if *src_iface, struct net_if *dst_iface, struct net_pkt *pkt) {
-    net_pkt_ref(pkt);  // Increment reference count
-    net_pkt_set_iface(pkt, dst_iface);  // Set the destination interface
+// /* Forward packet from one interface to another */
+// static void forward_packet(struct net_if *src_iface, struct net_if *dst_iface, struct net_pkt *pkt) {
+//     net_pkt_ref(pkt);  // Increment reference count
+//     net_pkt_set_iface(pkt, dst_iface);  // Set the destination interface
 
-    int ret = net_recv_data(dst_iface, pkt);  // Forward the packet
-    if (ret < 0) {
-        net_pkt_unref(pkt);  // Free packet if forwarding fails
-    }
-}
+//     int ret = net_recv_data(dst_iface, pkt);  // Forward the packet
+//     if (ret < 0) {
+//         net_pkt_unref(pkt);  // Free packet if forwarding fails
+//     }
+// }
 
-/* Packet filter callback */
-static bool packet_filter_callback(struct net_if *iface, struct net_pkt *pkt, void *user_data) {
-    struct net_if *other_iface = (struct net_if *)user_data;
+// /* Packet filter callback */
+// static bool packet_filter_callback(struct net_if *iface, struct net_pkt *pkt, void *user_data) {
+//     struct net_if *other_iface = (struct net_if *)user_data;
 
-    /* Example: Simple forwarding without filtering */
-    if (iface != other_iface) {
-        forward_packet(iface, other_iface, pkt);
-    }
+//     /* Example: Simple forwarding without filtering */
+//     if (iface != other_iface) {
+//         forward_packet(iface, other_iface, pkt);
+//     }
 
-    /* Return false to let the stack process the packet further if necessary */
-    return false;
-}
+//     /* Return false to let the stack process the packet further if necessary */
+//     return false;
+// }
 
 
 int main(void)
@@ -183,9 +187,9 @@ int main(void)
 	// net_dhcpv4_add_option_callback(&dhcp_cb);
 
 	// net_if_foreach(start_dhcpv4_client, NULL);
-    struct net_if *brdge_iface = net_if_get_by_index(1);
-	struct net_if *eth_iface = net_if_get_by_index(2);
-   	struct net_if *usb_iface = net_if_get_by_index(3);
+    struct net_if *brdge_iface = net_if_get_by_index(BRIDGE_IFACE_IDX);
+	struct net_if *eth_iface   = net_if_get_by_index(ETH_IFACE_IDX);
+   	struct net_if *usb_iface   = net_if_get_by_index(USB_IFACE_IDX);
      
 
 	// net_pkt_filter_register(iface1, packet_filter_callback, iface2);
@@ -205,16 +209,25 @@ int main(void)
         LOG_ERR("Failed to get USB interface");
     }
 
-    // configure bridge
+   // configure bridge
 
-    // ret = eth_bridge_iface_add(brdge_iface, eth_iface);
-	// 	if (ret < 0) {
-	// 		LOG_ERR("error: bridge eth_iface add (%d)\n", ret);
-	// 	}
-    // ret = eth_bridge_iface_add(brdge_iface, usb_iface);
-    //     if (ret < 0){
-    //         LOGERR("error: bridge usb_iface add (%d) \n");
-    //     }
+    if(brdge_iface && eth_iface && usb_iface){
+
+        int ret = 0;
+
+        LOG_INF("bridging ");
+        ret = eth_bridge_iface_add(brdge_iface, usb_iface);
+		if (ret < 0){
+			LOG_ERR("error: bridge eth_iface add (%d)\n", ret);
+		}
+        ret = eth_bridge_iface_add(brdge_iface, eth_iface);
+        if (ret < 0){
+            LOG_ERR("error: bridge usb_iface add (%d) \n", ret); 
+        }
+        k_msleep(2000);
+        net_if_up(brdge_iface);
+        LOG_INF("Network bridge interface is up");
+    }
 
 	return 0;
 }
