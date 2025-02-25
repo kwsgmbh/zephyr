@@ -22,11 +22,12 @@
 struct netusb_function {
 	int (*connect_media)(bool status);
 	int (*send_pkt)(struct net_pkt *pkt);
+	int (*eeprom_read)(uint16_t offset, uint8_t *data, size_t len);
 };
 
 struct net_if *netusb_net_iface(void);
 void netusb_recv(struct net_pkt *pkt);
 
-void netusb_enable(const struct netusb_function *func);
+void netusb_enable( struct netusb_function *func);
 void netusb_disable(void);
 bool netusb_enabled(void);

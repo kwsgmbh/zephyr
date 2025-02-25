@@ -36,6 +36,9 @@ NET_BUF_POOL_DEFINE(rndis_cmd_pool, CFG_RNDIS_CMD_BUF_COUNT,
 		    CFG_RNDIS_CMD_BUF_SIZE, 0, NULL);
 static struct k_fifo rndis_cmd_queue;
 
+
+static uint8_t mock_eeprom_data[256] = { 0xAA, 0xBB, 0xCC, 0xDD };  // Example EEPROM data
+
 /*
  * Stack for cmd thread
  */
@@ -862,6 +865,22 @@ static int rndis_class_handler(struct usb_setup_packet *setup, int32_t *len,
 	if (!netusb_enabled()) {
 		LOG_ERR("interface disabled");
 		return -ENODEV;
+	}
+
+	// Handle EEPROM Read Request (Custom Request 0xA0)
+	if (usb_reqtype_is_to_host(setup) && setup->bRequest == 0xA0) {  
+		uint16_t offset = setup->wIndex;  // Use wIndex as offset
+
+		if (offset + setup->wLength > sizeof(mock_eeprom_data)) {
+			LOG_ERR("EEPROM Read Out of Bounds");
+			return -EINVAL;
+		}
+
+		*data = &mock_eeprom_data[offset];
+		*len = setup->wLength;
+
+		LOG_INF("EEPROM Read: Offset=%d, Length=%d", offset, *len);
+		return 0;
 	}
 
 	if (usb_reqtype_is_to_device(setup)) {
