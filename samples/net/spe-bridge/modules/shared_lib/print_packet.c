@@ -14,7 +14,7 @@ LOG_MODULE_REGISTER(packet_monitor, LOG_LEVEL_DBG);
 
 
 
-void display_net_pkt_details(const struct net_pkt *pkt) {
+void display_net_pkt_details(struct net_pkt *pkt) {
 
        struct net_pkt *pkt_copy = net_pkt_clone(pkt, K_NO_WAIT);
     if (!pkt_copy) {

@@ -9,6 +9,6 @@
 
 
 
-void display_net_pkt_details(const struct net_pkt *pkt);
+void display_net_pkt_details(struct net_pkt *pkt);
 
 #endif /* PRINT_PACKET_H */
