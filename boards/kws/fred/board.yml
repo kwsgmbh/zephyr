@@ -1,0 +1,6 @@
+board:
+  name: fred
+  full_name: Fred-TheHandyman
+  vendor: kws
+  socs:
+  - name: rp2040

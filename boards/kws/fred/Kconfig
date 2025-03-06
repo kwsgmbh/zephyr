@@ -1,0 +1,5 @@
+# Copyright (c) 2024 KWS Computersysteme Gmbh
+# SPDX-License-Identifier: Apache-2.0
+
+config BOARD_FRED
+	select RP2_FLASH_W25Q080
