@@ -18,8 +18,6 @@
  #include <usb_descriptor.h>
  
  #include "netusb.h"
- #include <eth_forward_reciv.h>
- //#include <bridged_iface_utils.h>
  #include <print_packet.h>
  #include <arp.h>
  #define CONFIG_TARGET_ETH_IFACE_INDEX 2

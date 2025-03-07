@@ -1,0 +1,3 @@
+&lan8651 {
+    local-mac-address = [CA 2F B7 10 23 76];
+};

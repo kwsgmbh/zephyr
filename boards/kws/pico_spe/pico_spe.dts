@@ -175,7 +175,7 @@
 		plca-burst-timer = <0x80>;
 		plca-to-timer = <0x20>;
 
-		local-mac-address = [ CA 2F B7 10 23 75];
+		local-mac-address = [ CA 2F B7 10 23 76];
 	};
 };
 

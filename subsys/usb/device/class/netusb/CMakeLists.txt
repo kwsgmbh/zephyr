@@ -9,7 +9,8 @@ zephyr_library_include_directories(
   ${ZEPHYR_BASE}/include/zephyr/drivers/usb
   ${ZEPHYR_BASE}/include/zephyr/usb/
   ${ZEPHYR_BASE}/subsys/usb/device
-  ${ZEPHYR_BASE}/samples/net/spe-bridge/modules/shared_lib
+  ${ZEPHYR_BASE}/samples/net/spe-bridge-1/modules/shared_lib
+  ${ZEPHYR_BASE}/samples/net/spe-bridge-2/modules/shared_lib
   ..
 
   # IP headers
