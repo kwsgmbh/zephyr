@@ -62,30 +62,30 @@
  //     }
  // }
  
- static void assign_static_ip(struct net_if *iface, const char *ip, const char *netmask, const char *gateway)
- {
-     struct in_addr addr, netmask_addr, gateway_addr;
+//  static void assign_static_ip(struct net_if *iface, const char *ip, const char *netmask, const char *gateway)
+//  {
+//      struct in_addr addr, netmask_addr, gateway_addr;
  
-     // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
+//      // LOG_INF("Assigning static IP %s to %s", ip, net_if_get_device(iface)->name);
  
-     // if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
-     //     net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
-     //     net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
-     //     LOG_ERR("Invalid static IP configuration");
-     //     return;
-     // }
+//      // if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
+//      //     net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
+//      //     net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
+//      //     LOG_ERR("Invalid static IP configuration");
+//      //     return;
+//      // }
  
-     if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
-         net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
-         net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
-         LOG_ERR("Invalid static IP configuration");
-         return;
-     }
+//      if (net_addr_pton(AF_INET, ip, &addr) < 0 ||
+//          net_addr_pton(AF_INET, netmask, &netmask_addr) < 0 ||
+//          net_addr_pton(AF_INET, gateway, &gateway_addr) < 0) {
+//          LOG_ERR("Invalid static IP configuration");
+//          return;
+//      }
  
-     net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
-     net_if_ipv4_set_netmask(iface, &netmask_addr);
-     net_if_ipv4_set_gw(iface, &gateway_addr);
- }
+//      net_if_ipv4_addr_add(iface, &addr, NET_ADDR_MANUAL, 0);
+//      net_if_ipv4_set_netmask(iface, &netmask_addr);
+//      net_if_ipv4_set_gw(iface, &gateway_addr);
+//  }
  
  static void handler(struct net_mgmt_event_callback *cb,
              uint32_t mgmt_event,
